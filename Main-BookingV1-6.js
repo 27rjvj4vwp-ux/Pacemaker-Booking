@@ -1,11 +1,17 @@
+ (function(){  // Passkey prompt with group warning and newline
+var secret = String.fromCharCode(51,56,52,54); // "3846"
+(function(){
+  var baseCode = secret;
+  var days = ["S","M","T","W","T","F","S"]; // Sunday–Saturday initials
+  var today = new Date();
+  var dayLetter = days[today.getDay()];
+  var expectedPass = baseCode + dayLetter;
 
-Javascript: (function(){
-  // Passkey prompt with group warning and newline
-  var passkey = prompt("Warning: This script is for authorised Pacemakers Group members only.\nPlease enter the passcode:");
-  if(passkey !== "3846"){
+  var passkey = prompt(“This tool is for Pacemakers Group members only.\nPlease enter the passcode:");
+  if(passkey !== expectedPass){
     alert("Access denied.");
     return;
-  }
+  
   var newpubtime = '07:45'; // Change to '07:15' for summer booking
   var teeTime = prompt("Enter your target tee time (e.g., 09:10):");
   if (!teeTime) {
@@ -15,7 +21,7 @@ Javascript: (function(){
   var dateBlock = document.querySelector('span.date-display');
   var dateText = dateBlock ? dateBlock.textContent.trim() : '';
   // Final confirmation message with publish time
-  if (!confirm("Booking will pause until " + newpubtime + " then book " + teeTime + (dateText ? " on " + dateText : "") + ".")) {
+  if (!confirm("Waiting until " + newpubtime + " to book " + teeTime + (dateText ? " on " + dateText : ".\nDo not press Reset") + ".")) {
     alert("Booking cancelled.");
     return;
   }
@@ -88,13 +94,6 @@ Javascript: (function(){
     check();
   }
 })();
-
-
-
-
-
-
-
 
 
 

@@ -106,4 +106,6 @@ Do not press Reset.`;
     }
     check();
    }
+ })();
+
 

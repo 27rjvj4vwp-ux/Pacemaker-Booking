@@ -21,11 +21,26 @@
   var dateBlock = document.querySelector('span.date-display');
   var dateText = dateBlock ? dateBlock.textContent.trim() : '';
   // Final confirmation message with publish time
-  if (!confirm("Wait until " + newpubtime + " to book " + teeTime + (dateText ? " on " + dateText : ".\nDo not press Reset") + ".")) {
-    alert("Booking cancelled.");
-    return;
-  }
-  // Delayed booking logic only
+ // if (!confirm("Waiting until " + newpubtime + " to book " + teeTime + (dateText ? " on " + dateText : ".\nDo not press Reset") + ".")) {
+//    alert("Booking cancelled.");
+//    return;
+//  }
+const dateText = dateBlock ? dateBlock.textContent.trim() : '';
+// Ensure required variables exist
+if (typeof newpubtime === 'undefined' || typeof teeTime === 'undefined') {
+  console.error('Missing required variables: newpubtime or teeTime');
+  return;
+}
+// Build the confirmation message using template literals
+const message = `Waiting until ${newpubtime} to book ${teeTime}${dateText ? ` on ${dateText}` : '.'}
+Do not press Reset.`;
+// Show confirmation dialog
+const userConfirmed = confirm(message);
+if (!userConfirmed) {
+  alert('Booking cancelled.');
+  return;
+}
+// Continue with booking logic
   var prevArrow = document.querySelector('a[data-direction=\"prev\"]');
   if (prevArrow) {
     prevArrow.click();
@@ -94,9 +109,3 @@
     check();
   }
 })();
-
-
-
-
-
-

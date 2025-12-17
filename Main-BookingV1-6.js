@@ -1,16 +1,16 @@
- (function(){  // Passkey prompt with group warning and newline
-var secret = String.fromCharCode(51,56,52,54); // "3846"
-(function(){
+(function(){  // Passkey prompt with group warning and newline
+  var secret = String.fromCharCode(51,56,52,54); // "3846"
   var baseCode = secret;
   var days = ["S","M","T","W","T","F","S"]; // Sunday–Saturday initials
   var today = new Date();
   var dayLetter = days[today.getDay()];
   var expectedPass = baseCode + dayLetter;
 
-  var passkey = prompt(“This tool is for Pacemakers Group members only.\nPlease enter the passcode:");
+  var passkey = prompt("This tool is for Pacemakers Group members only.\nPlease enter the passcode:");
   if(passkey !== expectedPass){
     alert("Access denied.");
     return;
+  }
   
   var newpubtime = '07:45'; // Change to '07:15' for summer booking
   var teeTime = prompt("Enter your target tee time (e.g., 09:10):");

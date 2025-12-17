@@ -1,54 +1,53 @@
-(function(){  // Passkey prompt with group warning and newline
-  var secret = String.fromCharCode(51,56,52,54); // "3846"
-  var baseCode = secret;
-  var days = ["S","M","T","W","T","F","S"]; // Sunday–Saturday initials
-  var today = new Date();
-  var dayLetter = days[today.getDay()];
-  var expectedPass = baseCode + dayLetter;
+(function () {
+  // Passkey prompt with group warning and newline
+  const secret = String.fromCharCode(51, 56, 52, 54); // "3846"
+  const baseCode = secret;
+  const days = ["S", "M", "T", "W", "T", "F", "S"]; // Sunday–Saturday initials
+  const today = new Date();
+  const dayLetter = days[today.getDay()];
+  const expectedPass = baseCode + dayLetter;
 
-  var passkey = prompt("This tool is for Pacemakers Group members only.\nPlease enter the passcode:");
-  if(passkey !== expectedPass){
+  const passkey = prompt("This tool is for Pacemakers Group members only.\nPlease enter the passcode:");
+  if (passkey !== expectedPass) {
     alert("Access denied.");
     return;
   }
-  
-  var newpubtime = '07:45'; // Change to '07:15' for summer booking
-  var teeTime = prompt("Enter your target tee time (e.g., 09:10):");
+
+  const newpubtime = '07:45'; // Change to '07:15' for summer booking
+  const teeTime = prompt("Enter your target tee time (e.g., 09:10):");
   if (!teeTime) {
     alert("No tee time entered.");
     return;
   }
-  var dateBlock = document.querySelector('span.date-display');
-  var dateText = dateBlock ? dateBlock.textContent.trim() : '';
-  // Final confirmation message with publish time
- // if (!confirm("Waiting until " + newpubtime + " to book " + teeTime + (dateText ? " on " + dateText : ".\nDo not press Reset") + ".")) {
-//    alert("Booking cancelled.");
-//    return;
-//  }
-const dateText = dateBlock ? dateBlock.textContent.trim() : '';
-// Ensure required variables exist
-if (typeof newpubtime === 'undefined' || typeof teeTime === 'undefined') {
-  console.error('Missing required variables: newpubtime or teeTime');
-  return;
-}
-// Build the confirmation message using template literals
-const message = `Waiting until ${newpubtime} to book ${teeTime}${dateText ? ` on ${dateText}` : '.'}
+
+  // Get the date text from the page
+  const dateBlock = document.querySelector('span.date-display');
+  const dateText = dateBlock ? dateBlock.textContent.trim() : '';
+
+  // ✅ Improved confirmation message
+  if (typeof newpubtime === 'undefined' || typeof teeTime === 'undefined') {
+    console.error('Missing required variables: newpubtime or teeTime');
+    return;
+  }
+
+  const message = `Waiting until ${newpubtime} to book ${teeTime}${dateText ? ` on ${dateText}` : '.'}
 Do not press Reset.`;
-// Show confirmation dialog
-const userConfirmed = confirm(message);
-if (!userConfirmed) {
-  alert('Booking cancelled.');
-  return;
-}
-// Continue with booking logic
-  var prevArrow = document.querySelector('a[data-direction=\"prev\"]');
+
+  const userConfirmed = confirm(message);
+  if (!userConfirmed) {
+    alert('Booking cancelled.');
+    return;
+  }
+
+  // Delayed booking logic only
+  const prevArrow = document.querySelector('a[data-direction="prev"]');
   if (prevArrow) {
     prevArrow.click();
-    var parts = newpubtime.split(':');
-    var targetHour = parseInt(parts[0], 10), targetMinute = parseInt(parts[1], 10);
-    waitUntil(targetHour, targetMinute, 0, function() {
-      waitForDateUpdate(dateText, function() {
-        waitForBookingSlot(teeTime, 10000, function(btn) {
+    const parts = newpubtime.split(':');
+    const targetHour = parseInt(parts[0], 10), targetMinute = parseInt(parts[1], 10);
+    waitUntil(targetHour, targetMinute, 0, function () {
+      waitForDateUpdate(dateText, function () {
+        waitForBookingSlot(teeTime, 10000, function (btn) {
           btn.click();
           waitForConfirmationButton(5000);
         });
@@ -61,33 +60,33 @@ if (!userConfirmed) {
   // Helper functions
   function waitUntil(h, m, s, cb) {
     function check() {
-      var now = new Date();
+      const now = new Date();
       if (now.getHours() === h && now.getMinutes() === m && now.getSeconds() >= s) { cb(); }
       else { setTimeout(check, 100); }
     }
     check();
   }
+
   function waitForDateUpdate(targetText, cb) {
-    var dateBlock = document.querySelector('span.date-display');
+    const dateBlock = document.querySelector('span.date-display');
     if (!dateBlock) { alert('Date block not found!'); return; }
-    var obs = new MutationObserver(function() {
-      var newText = dateBlock.textContent.trim();
+    const obs = new MutationObserver(function () {
+      const newText = dateBlock.textContent.trim();
       if (newText === targetText) { obs.disconnect(); cb(); }
     });
     obs.observe(dateBlock, { characterData: true, subtree: true, childList: true });
-    var nextArrow = document.querySelector('a[data-direction=\"next\"]');
+    const nextArrow = document.querySelector('a[data-direction="next"]');
     if (nextArrow) { nextArrow.click(); }
     else { alert('Next day arrow not found!'); }
   }
+
   function waitForBookingSlot(a, b, c) {
-    var start = Date.now();
+    const start = Date.now();
     function check() {
-      var rows = Array.from(document.querySelectorAll('tr'));
-      var targetRow = rows.find(function(row) { return row.textContent.includes(a); });
+      const rows = Array.from(document.querySelectorAll('tr'));
+      const targetRow = rows.find(row => row.textContent.includes(a));
       if (targetRow) {
-        var bookBtn = Array.from(targetRow.querySelectorAll('button')).find(function(btn) {
-          return /book/i.test(btn.textContent.trim());
-        });
+        const bookBtn = Array.from(targetRow.querySelectorAll('button')).find(btn => /book/i.test(btn.textContent.trim()));
         if (bookBtn) { c(bookBtn, targetRow); return; }
       }
       if (Date.now() - start < b) { setTimeout(check, 10); }
@@ -95,17 +94,16 @@ if (!userConfirmed) {
     }
     check();
   }
+
   function waitForConfirmationButton(a) {
-    var start = Date.now();
+    const start = Date.now();
     function check() {
-      var confirmBtns = Array.from(document.querySelectorAll('button'));
-      var confirmBtn = confirmBtns.find(function(btn) {
-        return btn.textContent.includes('Book tee time at ' + teeTime);
-      });
+      const confirmBtns = Array.from(document.querySelectorAll('button'));
+      const confirmBtn = confirmBtns.find(btn => btn.textContent.includes('Book tee time at ' + teeTime));
       if (confirmBtn) { confirmBtn.click(); }
       else if (Date.now() - start < a) { setTimeout(check, 10); }
       else { alert('Confirmation button not found for ' + teeTime); }
     }
     check();
-  }
-})();
+   }
+

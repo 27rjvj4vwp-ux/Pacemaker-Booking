@@ -23,13 +23,6 @@
   // Get the date text from the page
   const dateBlock = document.querySelector('span.date-display');
   const dateText = dateBlock ? dateBlock.textContent.trim() : '';
-
-  // ✅ Improved confirmation message
-  if (typeof newpubtime === 'undefined' || typeof teeTime === 'undefined') {
-    console.error('Missing required variables: newpubtime or teeTime');
-    return;
-  }
-
   const message = `Waiting until ${newpubtime} to book ${teeTime}${dateText ? ` on ${dateText}` : '.'}
 Do not press Reset.`;
 

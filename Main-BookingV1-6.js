@@ -21,7 +21,7 @@
   var dateBlock = document.querySelector('span.date-display');
   var dateText = dateBlock ? dateBlock.textContent.trim() : '';
   // Final confirmation message with publish time
-  if (!confirm("Waiting until " + newpubtime + " to book " + teeTime + (dateText ? " on " + dateText : ".\nDo not press Reset") + ".")) {
+  if (!confirm("Wait until " + newpubtime + " to book " + teeTime + (dateText ? " on " + dateText : ".\nDo not press Reset") + ".")) {
     alert("Booking cancelled.");
     return;
   }

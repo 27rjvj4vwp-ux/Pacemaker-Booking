@@ -1,17 +1,40 @@
-(function () {
-  // Passkey prompt with group warning and newline
+(async function () {
+  // Base code obfuscated slightly
   const secret = String.fromCharCode(51, 56, 52, 54); // "3846"
   const baseCode = secret;
-  const days = ["S", "M", "T", "W", "T", "F", "S"]; // Sunday–Saturday initials
+  // Day-of-week letter (Sunday–Saturday)
+  const days = ["S", "M", "T", "W", "T", "F", "S"];
   const today = new Date();
   const dayLetter = days[today.getDay()];
+  // Build today's expected passcode
   const expectedPass = baseCode + dayLetter;
 
-  const passkey = prompt("This tool is for Pacemakers Group members only.\nPlease enter the passcode:");
-  if (passkey !== expectedPass) {
+  // Helper: SHA-256 hash function
+  async function sha256(text) {
+    const msgBuffer = new TextEncoder().encode(text);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+  // Compute expected hash
+  const expectedHash = await sha256(expectedPass);
+  // Prompt user with group warning
+  const passkey = prompt(
+    "This tool is for Pacemakers Group members only.\nPlease enter the passcode:"
+  );
+  if (!passkey) {
+    alert("No passcode entered.");
+    return;
+  }
+  // Hash user input and compare
+  const enteredHash = await sha256(passkey);
+  if (enteredHash !== expectedHash) {
     alert("Access denied.");
     return;
   }
+  // If we reach here, passcode is valid
+  // Continue with rest of the script...
+})();
 
   const newpubtime = '07:45'; // Change to '07:15' for summer booking
   const teeTime = prompt("Enter your target tee time (e.g., 09:10):");
@@ -100,5 +123,3 @@ Do not press Refresh.`;
     check();
    }
  })();
-
-

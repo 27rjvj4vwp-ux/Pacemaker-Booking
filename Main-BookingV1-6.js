@@ -24,7 +24,7 @@
   const dateBlock = document.querySelector('span.date-display');
   const dateText = dateBlock ? dateBlock.textContent.trim() : '';
   const message = `Waiting until ${newpubtime} to book ${teeTime}${dateText ? ` on ${dateText}` : '.'}
-Do not press Reset.`;
+Do not press Refresh.`;
 
   const userConfirmed = confirm(message);
   if (!userConfirmed) {

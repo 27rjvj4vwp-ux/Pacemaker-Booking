@@ -13,7 +13,7 @@
     return;
   }
 
-  const newpubtime = '09:25'; // Change to '07:15' for summer booking
+  const newpubtime = '07:45'; // Change to '07:15' for summer booking
   const teeTime = prompt("Enter your target tee time (e.g., 09:10):");
   if (!teeTime) {
     alert("No tee time entered.");

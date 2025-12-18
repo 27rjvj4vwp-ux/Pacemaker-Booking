@@ -13,7 +13,7 @@
     return;
   }
 
-  const newpubtime = '07:45'; // Change to '07:15' for summer booking
+  const newpubtime = '09:25'; // Change to '07:15' for summer booking
   const teeTime = prompt("Enter your target tee time (e.g., 09:10):");
   if (!teeTime) {
     alert("No tee time entered.");
@@ -24,7 +24,7 @@
   const dateBlock = document.querySelector('span.date-display');
   const dateText = dateBlock ? dateBlock.textContent.trim() : '';
   const message = `Waiting until ${newpubtime} to book ${teeTime}${dateText ? ` on ${dateText}` : '.'}
-Do not press Reset.`;
+Do not press Refresh.`;
 
   const userConfirmed = confirm(message);
   if (!userConfirmed) {

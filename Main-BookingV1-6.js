@@ -7,11 +7,11 @@
   const dayLetter = days[today.getDay()];
   const expectedPass = baseCode + dayLetter;
 
-  const passkey = prompt("This tool is for Pacemakers Group members only.\nPlease enter the passcode:");
+  const passkey = prompt("Booking Tool V1.7 : Pacemakers Group members only.\nPlease enter the passcode:");
   if (passkey !== expectedPass) { alert("Access denied."); return; }
 
   // ✅ Booking parameters
-  const newpubtime = '07:45'; // Change manually when club decides
+  const newpubtime = '14:20'; // Change manually when club decides
   const teeTime = prompt("Enter your target tee time (e.g., 09:10):");
   if (!teeTime) { alert("No tee time entered."); return; }
 

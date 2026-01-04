@@ -1,6 +1,6 @@
 
 (function () {
-  // ✅ Passkey prompt based on today's date
+  // Passkey prompt based on today's date
   const secret = String.fromCharCode(51, 56, 52, 54); // "3846"
   const baseCode = secret;
   const days = ["S", "M", "T", "W", "T", "F", "S"];
@@ -8,41 +8,50 @@
   const dayLetter = days[today.getDay()];
   const expectedPass = baseCode + dayLetter;
 
-  const passkey = prompt("This tool is for Pacemakers Group members only.\nPlease enter the passcode:");
+  const passkey = prompt("Booking tool V1.7 : Pacemakers Group members only.\nPlease enter the passcode:");
   if (passkey !== expectedPass) { alert("Access denied."); return; }
 
-  // ✅ Dynamic newpubtime prompt
-  const newpubtime = prompt("Enter the publication time (HH:MM UK time):", "07:45");
+  // Set publication time (change as needed for production)
+  const newpubtime = '07:45';// Change to 07:15 for summer booking
   const teeTime = prompt("Enter your target tee time (e.g., 09:10):");
   if (!teeTime) { alert("No tee time entered."); return; }
 
-  // ✅ Capture target date (browser positioned here when script runs)
+  // Capture target date (browser positioned here when script runs)
   const dateBlock = document.querySelector('span.date-display');
   const targetDateText = dateBlock ? dateBlock.textContent.trim() : '';
   if (!targetDateText) { alert('Target date not found on page.'); return; }
 
+  // Convert targetDateText (e.g., "Thu, 8th January") to booking system format (e.g., "08-01-2026")
+  function getBookingSystemDate(str) {
+    let parts = str.replace(',', '').split(' ');
+    let day = parts[1].replace(/\D/g, '').padStart(2, '0');
+    let monthName = parts[2];
+    let year = parts[3] || (new Date().getFullYear().toString());
+    const monthMap = {
+      'January': '01', 'February': '02', 'March': '03', 'April': '04',
+      'May': '05', 'June': '06', 'July': '07', 'August': '08',
+      'September': '09', 'October': '10', 'November': '11', 'December': '12'
+    };
+    let month = monthMap[monthName];
+    return `${day}-${month}-${year}`;
+  }
+  const bookingSystemDate = getBookingSystemDate(targetDateText);
+
   const message = `Waiting until ${newpubtime} UK time to book ${teeTime} on ${targetDateText}\nDo not press Reset.`;
   if (!confirm(message)) { alert('Booking cancelled.'); return; }
 
-  console.log("Target date:", targetDateText);
-
-  // ✅ Move to previous day before waiting
+  // Move to previous day before waiting
   const prevArrow = document.querySelector('a[data-direction="prev"]');
   if (prevArrow) {
-    console.log("Clicking previous day arrow...");
     prevArrow.click();
     waitUntilUKTime(newpubtime, function () {
-      console.log("Reached newpubtime:", newpubtime);
       const nextArrow = document.querySelector('a[data-direction="next"]');
       if (nextArrow) {
-        console.log("Clicking next day arrow...");
         nextArrow.click();
       } else { alert('Next day arrow not found!'); return; }
 
-      waitForDateUpdate(targetDateText, function () {
-        console.log("Target date confirmed:", targetDateText);
-        waitForBookingSlot(teeTime, targetDateText, 30000, function (btn) {
-          console.log("Booking slot found for:", teeTime);
+      waitForDateDisplay(targetDateText, function () {
+        waitForBookingSlot(teeTime, bookingSystemDate, 10000, function (btn) {
           btn.click();
           waitForConfirmationButton(5000);
         });
@@ -50,60 +59,60 @@
     });
   } else { alert('Previous day arrow not found!'); }
 
-  // ✅ Exact UK-time wait function
   function waitUntilUKTime(timeStr, cb) {
     const [h, m] = timeStr.split(':').map(Number);
     const ukNow = new Date(new Date().toLocaleString("en-GB", { timeZone: "Europe/London" }));
     const targetUK = new Date(ukNow);
     targetUK.setHours(h, m, 0, 0);
     if (targetUK < ukNow) targetUK.setDate(targetUK.getDate() + 1);
-
     const delayMs = targetUK.getTime() - ukNow.getTime();
-    console.log(`Waiting ${delayMs / 1000}s until ${timeStr} UK time...`);
     setTimeout(cb, delayMs);
   }
 
-  // ✅ Wait for correct date before proceeding
-  function waitForDateUpdate(targetDateText, cb) {
+  // Wait for the date display to update to the target date
+  function waitForDateDisplay(targetDateText, cb) {
     const dateBlock = document.querySelector('span.date-display');
     if (!dateBlock) { alert('Date block not found!'); return; }
-
-    const obs = new MutationObserver(() => {
+    let detected = false;
+    const start = Date.now();
+    function poll() {
       const newText = dateBlock.textContent.trim();
-      console.log("Observed date change:", newText);
-      if (newText.toLowerCase().includes(targetDateText.toLowerCase())) {
-        obs.disconnect();
-        cb();
+      if (newText.toLowerCase() === targetDateText.toLowerCase()) {
+        detected = true;
+        setTimeout(cb, 100); // Small delay for table refresh
+        return;
       }
-    });
-
-    obs.observe(dateBlock, { characterData: true, subtree: true, childList: true });
-
-    setTimeout(() => {
-      obs.disconnect();
-      alert('Date update not detected in time. Please check manually.');
-    }, 30000); // Increased timeout
+      if (Date.now() - start < 5000) setTimeout(poll, 10);
+      else alert('Date update not detected in time. Please check manually.');
+    }
+    poll();
   }
 
-  // ✅ Double-check date before booking
-  function waitForBookingSlot(targetTime, targetDateText, timeoutMs, cb) {
+  // Only book if the slot's hidden input date matches the booking system date
+  function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
     const start = Date.now();
     function check() {
-      const dateBlock = document.querySelector('span.date-display');
-      const currentDate = dateBlock ? dateBlock.textContent.trim() : '';
-      if (currentDate.toLowerCase() !== targetDateText.toLowerCase()) {
-        if (Date.now() - start < timeoutMs) { setTimeout(check, 100); return; }
-        else { alert('Target date not reached in time.'); return; }
+      const table = document.querySelector('#member_teetimes');
+      if (!table) { alert('Booking table not found!'); return; }
+      const rows = Array.from(table.querySelectorAll('tr'));
+      for (const row of rows) {
+        const timeCell = row.querySelector('th.slot-time');
+        if (timeCell && timeCell.textContent.trim() === teeTime) {
+          const hiddenDateInput = row.querySelector('input[name="date"]');
+          if (hiddenDateInput) {
+            const rowDate = hiddenDateInput.value;
+            if (rowDate === bookingSystemDate) {
+              let bookBtn = row.querySelector('a.button.inlineBooking.btn-success');
+              if (!bookBtn) {
+                bookBtn = Array.from(row.querySelectorAll('button')).find(btn => /book/i.test(btn.textContent.trim()));
+              }
+              if (bookBtn) { cb(bookBtn, row); return; }
+            }
+          }
+        }
       }
-
-      const rows = Array.from(document.querySelectorAll('tr'));
-      const targetRow = rows.find(row => row.textContent.includes(targetTime));
-      if (targetRow) {
-        const bookBtn = Array.from(targetRow.querySelectorAll('button')).find(btn => /book/i.test(btn.textContent.trim()));
-        if (bookBtn) { cb(bookBtn, targetRow); return; }
-      }
-      if (Date.now() - start < timeoutMs) { setTimeout(check, 100); }
-      else { alert('Book button not found for ' + targetTime); }
+      if (Date.now() - start < timeoutMs) { setTimeout(check, 10); }
+      else { alert('Book button not found for ' + targetTime + ' on correct date'); }
     }
     check();
   }
@@ -111,10 +120,9 @@
   function waitForConfirmationButton(timeoutMs) {
     const start = Date.now();
     function check() {
-      const confirmBtns = Array.from(document.querySelectorAll('button'));
-      const confirmBtn = confirmBtns.find(btn => btn.textContent.includes('Book tee time at ' + teeTime));
+      const confirmBtns = Array.from(document.querySelectorAll('button, a'));
+      const confirmBtn = confirmBtns.find(btn => btn.textContent.includes('Book teetime at ' + teeTime));
       if (confirmBtn) {
-        console.log("Clicking confirmation button...");
         confirmBtn.click();
         const now = new Date().toISOString();
         const logKey = 'bookingTimes';

@@ -11,7 +11,7 @@
   if (passkey !== expectedPass) { alert("Access denied."); return; }
 
   // ✅ Booking parameters
-  const newpubtime = '14:00'; // Change manually when club decides
+  const newpubtime = '07:45'; // Change manually when club decides
   const teeTime = prompt("Enter your target tee time (e.g., 09:10):");
   if (!teeTime) { alert("No tee time entered."); return; }
 
@@ -62,3 +62,58 @@
         cb();
       }
     });
+
+    obs.observe(dateBlock, { characterData: true, subtree: true, childList: true });
+
+    const nextArrow = document.querySelector('a[data-direction="next"]');
+    if (nextArrow) nextArrow.click(); else alert('Next day arrow not found!');
+
+    setTimeout(() => {
+      obs.disconnect();
+      alert('Date update not detected in time. Please check manually.');
+    }, 15000); // Increased timeout
+  }
+
+  // ✅ Double-check date before booking
+  function waitForBookingSlot(targetTime, targetDateText, timeoutMs, cb) {
+    const start = Date.now();
+    function check() {
+      const dateBlock = document.querySelector('span.date-display');
+      if (!dateBlock || dateBlock.textContent.trim() !== targetDateText) {
+        if (Date.now() - start < timeoutMs) { setTimeout(check, 50); return; }
+        else { alert('Target date not reached in time.'); return; }
+      }
+
+      const rows = Array.from(document.querySelectorAll('tr'));
+      const targetRow = rows.find(row => row.textContent.includes(targetTime));
+      if (targetRow) {
+        const bookBtn = Array.from(targetRow.querySelectorAll('button')).find(btn => /book/i.test(btn.textContent.trim()));
+        if (bookBtn) { cb(bookBtn, targetRow); return; }
+      }
+      if (Date.now() - start < timeoutMs) { setTimeout(check, 50); }
+      else { alert('Book button not found for ' + targetTime); }
+    }
+    check();
+  }
+
+  // ✅ Confirm booking and log
+  function waitForConfirmationButton(timeoutMs) {
+    const start = Date.now();
+    function check() {
+      const confirmBtns = Array.from(document.querySelectorAll('button'));
+      const confirmBtn = confirmBtns.find(btn => btn.textContent.includes('Book tee time at ' + teeTime));
+      if (confirmBtn) {
+        confirmBtn.click();
+        // Log booking time
+        const now = new Date().toISOString();
+        const logKey = 'bookingTimes';
+        const logs = JSON.parse(localStorage.getItem(logKey) || '[]');
+        logs.push(now);
+        localStorage.setItem(logKey, JSON.stringify(logs));
+      } else if (Date.now() - start < timeoutMs) setTimeout(check, 10);
+      else alert('Confirmation button not found for ' + teeTime);
+    }
+    check();
+  }
+})();
+

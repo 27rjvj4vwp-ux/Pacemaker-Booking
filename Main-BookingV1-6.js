@@ -8,10 +8,10 @@
   const dayLetter = days[today.getDay()];
   const expectedPass = baseCode + dayLetter;
 
-  const passkey = prompt("Booking tool V1.7 : Pacemakers Group members only.\nPlease enter the passcode:");
+  const passkey = prompt("This tool is for Pacemakers Group members only.\nPlease enter the passcode:");
   if (passkey !== expectedPass) { alert("Access denied."); return; }
 
-  const newpubtime = '11:23'; // Change manually when club decides
+  const newpubtime = '07:45'; // Change manually when club decides
   const teeTime = prompt("Enter your target tee time (e.g., 09:10):");
   if (!teeTime) { alert("No tee time entered."); return; }
 
@@ -26,7 +26,7 @@
     prevArrow.click();
     waitUntilUKTime(newpubtime, function () {
       waitForDateUpdate(dateText, function () {
-        waitForBookingSlot(teeTime, 10000, function (btn) {
+        waitForBookingSlotAfterRefresh(teeTime, 10000, function (btn) {
           btn.click();
           waitForConfirmationButton(5000);
         });
@@ -72,42 +72,40 @@
     const nextArrow = document.querySelector('a[data-direction="next"]');
     if (nextArrow) nextArrow.click(); else alert('Next day arrow not found!');
 
-    // Fallback timeout
     setTimeout(() => {
       obs.disconnect();
       alert('Date update not detected in time. Please check manually.');
     }, 5000);
   }
 
-  // ✅ Double-check date and ensure slot table refresh before booking
-  function waitForBookingSlot(a, b, c) {
+  // ✅ New function: Wait for slot table refresh after date change
+  function waitForBookingSlotAfterRefresh(a, b, c) {
+    const table = document.querySelector('table'); // Adjust selector if needed
+    if (!table) { alert('Slot table not found!'); return; }
+
     const start = Date.now();
-    function check() {
+    const obs = new MutationObserver(() => {
       const dateBlock = document.querySelector('span.date-display');
-      if (!dateBlock || dateBlock.textContent.trim() !== dateText) {
-        if (Date.now() - start < b) { setTimeout(check, 50); return; }
-        else { alert('Target date not reached in time.'); return; }
-      }
+      if (!dateBlock || dateBlock.textContent.trim() !== dateText) return; // Still wrong date
 
-      // Ensure previous day's slots are gone
       const rows = Array.from(document.querySelectorAll('tr'));
-      const wrongDayRow = rows.find(row => row.textContent.includes(a) && dateBlock.textContent.trim() !== dateText);
-      if (wrongDayRow) {
-        if (Date.now() - start < b) { setTimeout(check, 50); return; }
-        else { alert('Slot table did not refresh in time.'); return; }
-      }
-
-      // Now search for the correct slot
       const targetRow = rows.find(row => row.textContent.includes(a));
       if (targetRow) {
         const bookBtn = Array.from(targetRow.querySelectorAll('button')).find(btn => /book/i.test(btn.textContent.trim()));
-        if (bookBtn) { c(bookBtn, targetRow); return; }
+        if (bookBtn) {
+          obs.disconnect();
+          c(bookBtn, targetRow);
+        }
       }
+    });
 
-      if (Date.now() - start < b) { setTimeout(check, 50); }
-      else { alert('Book button not found for ' + a); }
-    }
-    check();
+    obs.observe(table, { childList: true, subtree: true });
+
+    // Fallback timeout
+    setTimeout(() => {
+      obs.disconnect();
+      alert('Booking slot not found in time.');
+    }, b);
   }
 
   function waitForConfirmationButton(a) {
@@ -117,7 +115,7 @@
       const confirmBtn = confirmBtns.find(btn => btn.textContent.includes('Book tee time at ' + teeTime));
       if (confirmBtn) {
         confirmBtn.click();
-        // Log booking time (outside critical section)
+        // Log booking time
         const now = new Date().toISOString();
         const logKey = 'bookingTimes';
         const logs = JSON.parse(localStorage.getItem(logKey) || '[]');

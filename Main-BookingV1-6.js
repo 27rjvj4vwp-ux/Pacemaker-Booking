@@ -11,7 +11,7 @@
   const passkey = prompt("Booking tool V1.7 : Pacemakers Group members only.\nPlease enter the passcode:");
   if (passkey !== expectedPass) { alert("Access denied."); return; }
 
-  const newpubtime = '12:00'; // Change manually when club decides
+  const newpubtime = '12:10'; // Change manually when club decides
   const teeTime = prompt("Enter your target tee time (e.g., 09:10):");
   if (!teeTime) { alert("No tee time entered."); return; }
 

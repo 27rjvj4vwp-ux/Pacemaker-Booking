@@ -1,3 +1,4 @@
+
 (function () {
   // ✅ Passkey prompt based on today's date
   const secret = String.fromCharCode(51, 56, 52, 54); // "3846"
@@ -7,36 +8,41 @@
   const dayLetter = days[today.getDay()];
   const expectedPass = baseCode + dayLetter;
 
-  const passkey = prompt("Booking tool V1.7 : Pacemakers Group members only.\nPlease enter the passcode:");
+  const passkey = prompt("This tool is for Pacemakers Group members only.\nPlease enter the passcode:");
   if (passkey !== expectedPass) { alert("Access denied."); return; }
 
-  // ✅ Booking parameters
-  const newpubtime = '15:30'; // Change manually when club decides
+  // ✅ Dynamic newpubtime prompt
+  const newpubtime = prompt("Enter the publication time (HH:MM UK time):", "07:45");
   const teeTime = prompt("Enter your target tee time (e.g., 09:10):");
   if (!teeTime) { alert("No tee time entered."); return; }
 
-  // ✅ Capture the target date (browser is positioned here when script runs)
+  // ✅ Capture target date (browser positioned here when script runs)
   const dateBlock = document.querySelector('span.date-display');
   const targetDateText = dateBlock ? dateBlock.textContent.trim() : '';
   if (!targetDateText) { alert('Target date not found on page.'); return; }
 
-  // ✅ Confirmation message uses target date
   const message = `Waiting until ${newpubtime} UK time to book ${teeTime} on ${targetDateText}\nDo not press Reset.`;
   if (!confirm(message)) { alert('Booking cancelled.'); return; }
+
+  console.log("Target date:", targetDateText);
 
   // ✅ Move to previous day before waiting
   const prevArrow = document.querySelector('a[data-direction="prev"]');
   if (prevArrow) {
+    console.log("Clicking previous day arrow...");
     prevArrow.click();
     waitUntilUKTime(newpubtime, function () {
-      // ✅ Click forward arrow only after newpubtime
+      console.log("Reached newpubtime:", newpubtime);
       const nextArrow = document.querySelector('a[data-direction="next"]');
-      if (nextArrow) nextArrow.click(); else { alert('Next day arrow not found!'); return; }
+      if (nextArrow) {
+        console.log("Clicking next day arrow...");
+        nextArrow.click();
+      } else { alert('Next day arrow not found!'); return; }
 
-      // ✅ Wait for target date to appear
       waitForDateUpdate(targetDateText, function () {
-        // ✅ Only start booking when target date confirmed
-        waitForBookingSlot(teeTime, targetDateText, 15000, function (btn) {
+        console.log("Target date confirmed:", targetDateText);
+        waitForBookingSlot(teeTime, targetDateText, 30000, function (btn) {
+          console.log("Booking slot found for:", teeTime);
           btn.click();
           waitForConfirmationButton(5000);
         });
@@ -53,7 +59,8 @@
     if (targetUK < ukNow) targetUK.setDate(targetUK.getDate() + 1);
 
     const delayMs = targetUK.getTime() - ukNow.getTime();
-    setTimeout(cb, delayMs); // Fires exactly at newpubtime
+    console.log(`Waiting ${delayMs / 1000}s until ${timeStr} UK time...`);
+    setTimeout(cb, delayMs);
   }
 
   // ✅ Wait for correct date before proceeding
@@ -63,7 +70,8 @@
 
     const obs = new MutationObserver(() => {
       const newText = dateBlock.textContent.trim();
-      if (newText === targetDateText) {
+      console.log("Observed date change:", newText);
+      if (newText.toLowerCase().includes(targetDateText.toLowerCase())) {
         obs.disconnect();
         cb();
       }
@@ -74,7 +82,7 @@
     setTimeout(() => {
       obs.disconnect();
       alert('Date update not detected in time. Please check manually.');
-    }, 15000); // Increased timeout
+    }, 30000); // Increased timeout
   }
 
   // ✅ Double-check date before booking
@@ -83,7 +91,7 @@
     function check() {
       const dateBlock = document.querySelector('span.date-display');
       const currentDate = dateBlock ? dateBlock.textContent.trim() : '';
-      if (currentDate !== targetDateText) {
+      if (currentDate.toLowerCase() !== targetDateText.toLowerCase()) {
         if (Date.now() - start < timeoutMs) { setTimeout(check, 100); return; }
         else { alert('Target date not reached in time.'); return; }
       }
@@ -100,13 +108,13 @@
     check();
   }
 
-  // ✅ Confirm booking and log
   function waitForConfirmationButton(timeoutMs) {
     const start = Date.now();
     function check() {
       const confirmBtns = Array.from(document.querySelectorAll('button'));
       const confirmBtn = confirmBtns.find(btn => btn.textContent.includes('Book tee time at ' + teeTime));
       if (confirmBtn) {
+        console.log("Clicking confirmation button...");
         confirmBtn.click();
         const now = new Date().toISOString();
         const logKey = 'bookingTimes';

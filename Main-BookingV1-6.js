@@ -8,10 +8,10 @@
   const dayLetter = days[today.getDay()];
   const expectedPass = baseCode + dayLetter;
 
-  const passkey = prompt("Booking tool V1.7 - Pacemakers Group members only.\nPlease enter the passcode:");
+  const passkey = prompt("Booking tool V1.7 : Pacemakers Group members only.\nPlease enter the passcode:");
   if (passkey !== expectedPass) { alert("Access denied."); return; }
 
-  const newpubtime = '11:10'; // Change manually when club decides
+  const newpubtime = '11:23'; // Change manually when club decides
   const teeTime = prompt("Enter your target tee time (e.g., 09:10):");
   if (!teeTime) { alert("No tee time entered."); return; }
 
@@ -54,7 +54,7 @@
     }, Math.max(0, delayMs - 1000));
   }
 
-  // Improved observer: waits for correct date before proceeding
+  // Wait for correct date before proceeding
   function waitForDateUpdate(targetText, cb) {
     const dateBlock = document.querySelector('span.date-display');
     if (!dateBlock) { alert('Date block not found!'); return; }
@@ -63,7 +63,7 @@
       const newText = dateBlock.textContent.trim();
       if (newText === targetText) {
         obs.disconnect();
-        cb(); // Only proceed when date matches target
+        cb();
       }
     });
 
@@ -79,7 +79,7 @@
     }, 5000);
   }
 
-  // Double-check date before booking
+  // ✅ Double-check date and ensure slot table refresh before booking
   function waitForBookingSlot(a, b, c) {
     const start = Date.now();
     function check() {
@@ -89,12 +89,21 @@
         else { alert('Target date not reached in time.'); return; }
       }
 
+      // Ensure previous day's slots are gone
       const rows = Array.from(document.querySelectorAll('tr'));
+      const wrongDayRow = rows.find(row => row.textContent.includes(a) && dateBlock.textContent.trim() !== dateText);
+      if (wrongDayRow) {
+        if (Date.now() - start < b) { setTimeout(check, 50); return; }
+        else { alert('Slot table did not refresh in time.'); return; }
+      }
+
+      // Now search for the correct slot
       const targetRow = rows.find(row => row.textContent.includes(a));
       if (targetRow) {
         const bookBtn = Array.from(targetRow.querySelectorAll('button')).find(btn => /book/i.test(btn.textContent.trim()));
         if (bookBtn) { c(bookBtn, targetRow); return; }
       }
+
       if (Date.now() - start < b) { setTimeout(check, 50); }
       else { alert('Book button not found for ' + a); }
     }

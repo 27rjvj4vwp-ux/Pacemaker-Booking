@@ -7,11 +7,11 @@
   const dayLetter = days[today.getDay()];
   const expectedPass = baseCode + dayLetter;
 
-  const passkey = prompt("Booking Tool V1.7 : Pacemakers Group members only.\nPlease enter the passcode:");
+  const passkey = prompt("Booking tool V1.7 : Pacemakers Group members only.\nPlease enter the passcode:");
   if (passkey !== expectedPass) { alert("Access denied."); return; }
 
   // ✅ Booking parameters
-  const newpubtime = '15:00'; // Change manually when club decides
+  const newpubtime = '15:30'; // Change manually when club decides
   const teeTime = prompt("Enter your target tee time (e.g., 09:10):");
   if (!teeTime) { alert("No tee time entered."); return; }
 
@@ -29,7 +29,13 @@
   if (prevArrow) {
     prevArrow.click();
     waitUntilUKTime(newpubtime, function () {
+      // ✅ Click forward arrow only after newpubtime
+      const nextArrow = document.querySelector('a[data-direction="next"]');
+      if (nextArrow) nextArrow.click(); else { alert('Next day arrow not found!'); return; }
+
+      // ✅ Wait for target date to appear
       waitForDateUpdate(targetDateText, function () {
+        // ✅ Only start booking when target date confirmed
         waitForBookingSlot(teeTime, targetDateText, 15000, function (btn) {
           btn.click();
           waitForConfirmationButton(5000);
@@ -65,9 +71,6 @@
 
     obs.observe(dateBlock, { characterData: true, subtree: true, childList: true });
 
-    const nextArrow = document.querySelector('a[data-direction="next"]');
-    if (nextArrow) nextArrow.click(); else alert('Next day arrow not found!');
-
     setTimeout(() => {
       obs.disconnect();
       alert('Date update not detected in time. Please check manually.');
@@ -79,8 +82,9 @@
     const start = Date.now();
     function check() {
       const dateBlock = document.querySelector('span.date-display');
-      if (!dateBlock || dateBlock.textContent.trim() !== targetDateText) {
-        if (Date.now() - start < timeoutMs) { setTimeout(check, 50); return; }
+      const currentDate = dateBlock ? dateBlock.textContent.trim() : '';
+      if (currentDate !== targetDateText) {
+        if (Date.now() - start < timeoutMs) { setTimeout(check, 100); return; }
         else { alert('Target date not reached in time.'); return; }
       }
 
@@ -90,7 +94,7 @@
         const bookBtn = Array.from(targetRow.querySelectorAll('button')).find(btn => /book/i.test(btn.textContent.trim()));
         if (bookBtn) { cb(bookBtn, targetRow); return; }
       }
-      if (Date.now() - start < timeoutMs) { setTimeout(check, 50); }
+      if (Date.now() - start < timeoutMs) { setTimeout(check, 100); }
       else { alert('Book button not found for ' + targetTime); }
     }
     check();
@@ -104,7 +108,6 @@
       const confirmBtn = confirmBtns.find(btn => btn.textContent.includes('Book tee time at ' + teeTime));
       if (confirmBtn) {
         confirmBtn.click();
-        // Log booking time
         const now = new Date().toISOString();
         const logKey = 'bookingTimes';
         const logs = JSON.parse(localStorage.getItem(logKey) || '[]');
@@ -116,4 +119,3 @@
     check();
   }
 })();
-

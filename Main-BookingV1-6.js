@@ -1,4 +1,3 @@
-
 (function () {
   // Passkey prompt based on today's date
   const secret = String.fromCharCode(51, 56, 52, 54); // "3846"
@@ -8,20 +7,19 @@
   const dayLetter = days[today.getDay()];
   const expectedPass = baseCode + dayLetter;
 
-  const passkey = prompt("Booking tool V1.7 : Pacemakers Group members only.\nPlease enter the passcode:");
+  const passkey = prompt("Booking tool V1.7 : Pacemakers use only.\nPlease enter the passcode:");
   if (passkey !== expectedPass) { alert("Access denied."); return; }
 
-  // Set publication time (change as needed for production)
-  const newpubtime = '07:45';// Change to 07:15 for summer booking
+  // Hardcode publication time
+  const newpubtime = "07:45";
   const teeTime = prompt("Enter your target tee time (e.g., 09:10):");
   if (!teeTime) { alert("No tee time entered."); return; }
 
-  // Capture target date (browser positioned here when script runs)
+  // Capture target date
   const dateBlock = document.querySelector('span.date-display');
   const targetDateText = dateBlock ? dateBlock.textContent.trim() : '';
   if (!targetDateText) { alert('Target date not found on page.'); return; }
 
-  // Convert targetDateText (e.g., "Thu, 8th January") to booking system format (e.g., "08-01-2026")
   function getBookingSystemDate(str) {
     let parts = str.replace(',', '').split(' ');
     let day = parts[1].replace(/\D/g, '').padStart(2, '0');
@@ -40,7 +38,6 @@
   const message = `Waiting until ${newpubtime} UK time to book ${teeTime} on ${targetDateText}\nDo not press Reset.`;
   if (!confirm(message)) { alert('Booking cancelled.'); return; }
 
-  // Move to previous day before waiting
   const prevArrow = document.querySelector('a[data-direction="prev"]');
   if (prevArrow) {
     prevArrow.click();
@@ -69,17 +66,14 @@
     setTimeout(cb, delayMs);
   }
 
-  // Wait for the date display to update to the target date
   function waitForDateDisplay(targetDateText, cb) {
     const dateBlock = document.querySelector('span.date-display');
     if (!dateBlock) { alert('Date block not found!'); return; }
-    let detected = false;
     const start = Date.now();
     function poll() {
       const newText = dateBlock.textContent.trim();
       if (newText.toLowerCase() === targetDateText.toLowerCase()) {
-        detected = true;
-        setTimeout(cb, 100); // Small delay for table refresh
+        setTimeout(cb, 100);
         return;
       }
       if (Date.now() - start < 5000) setTimeout(poll, 10);
@@ -88,7 +82,6 @@
     poll();
   }
 
-  // Only book if the slot's hidden input date matches the booking system date
   function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
     const start = Date.now();
     function check() {
@@ -124,10 +117,11 @@
       const confirmBtn = confirmBtns.find(btn => btn.textContent.includes('Book teetime at ' + teeTime));
       if (confirmBtn) {
         confirmBtn.click();
-        const now = new Date().toISOString();
+        const nowPerf = performance.now(); // High-resolution timestamp
+        const nowISO = new Date().toISOString();
         const logKey = 'bookingTimes';
         const logs = JSON.parse(localStorage.getItem(logKey) || '[]');
-        logs.push(now);
+        logs.push({ iso: nowISO, perf: nowPerf });
         localStorage.setItem(logKey, JSON.stringify(logs));
       } else if (Date.now() - start < timeoutMs) setTimeout(check, 10);
       else alert('Confirmation button not found for ' + teeTime);

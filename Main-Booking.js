@@ -12,7 +12,7 @@
  // if (passkey !== expectedPass) { alert("Access denied."); return; }
 
   const newpubtime = "07:45"; // Hardcode publication time
-  const teeTime = prompt("Booking tool V1.7a : Pacemakers use only.\nEnter your target tee time (e.g., 09:10):");
+  const teeTime = prompt("Booking tool V1.7.1 : Pacemakers use only.\nEnter your target tee time (e.g., 09:10):");
   if (!teeTime) { alert("No tee time entered."); return; }
 
   // Capture target date
@@ -117,12 +117,23 @@
       const confirmBtn = confirmBtns.find(btn => btn.textContent.includes('Book teetime at ' + teeTime));
       if (confirmBtn) {
         confirmBtn.click();
-        const nowPerf = performance.now(); // High-resolution timestamp
-        const nowISO = new Date().toISOString();
-        const logKey = 'bookingTimes';
-        const logs = JSON.parse(localStorage.getItem(logKey) || '[]');
-        logs.push({ iso: nowISO, perf: nowPerf });
-        localStorage.setItem(logKey, JSON.stringify(logs));
+ 
+// High-precision, absolute epoch + ISO (UTC) + perf delta
+const nowPerf   = performance.now();                         // ms since timeOrigin
+const epochMsHp = performance.timeOrigin + nowPerf;          // absolute epoch (ms)
+const nowISO    = new Date(epochMsHp).toISOString();         // ISO aligned to epochMsHp
+
+const logKey = 'bookingTimes';
+const logs   = JSON.parse(localStorage.getItem(logKey) || '[]');
+logs.push({ iso: nowISO, perf: nowPerf, epochMsHp: epochMsHp }); // uniform shape
+localStorage.setItem(logKey, JSON.stringify(logs));
+       
+      // const nowPerf = performance.now(); // High-resolution timestamp
+       // const nowISO = new Date().toISOString();
+       // const logKey = 'bookingTimes';
+       // const logs = JSON.parse(localStorage.getItem(logKey) || '[]');
+       // logs.push({ iso: nowISO, perf: nowPerf });
+       // localStorage.setItem(logKey, JSON.stringify(logs));
       } else if (Date.now() - start < timeoutMs) setTimeout(check, 10);
       else alert('Confirmation button not found for ' + teeTime);
     }

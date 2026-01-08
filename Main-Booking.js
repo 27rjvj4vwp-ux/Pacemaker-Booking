@@ -3,9 +3,14 @@
 // Confirm-button loop tightened to 5 ms.
 
 (function () {
-  const newpubtime = "07:45"; // Hardcode publication time (winter)
-  const teeTime = (prompt("Booking tool V1.7.2 : Pacemakers use only.\nEnter your target tee time (e.g., 09:10):") || '').trim();
-  if (!teeTime) { alert("No tee time entered."); return; }
+ // const newpubtime = "07:45"; // Hardcode publication time (winter)
+  // const teeTime = (prompt("Booking tool V1.7.2 : Pacemakers use only.\nEnter your target tee time (e.g., 09:10):") || '').trim();
+  // if (!teeTime) { alert("No tee time entered."); return; }
+
+const defaultPubTime = "07:45";
+const newpubtime = (prompt("Booking tool V1.7.2 : Pacemakers use only.\nEnter publish time (HH:MM) or leave blank for default 07:45:") || defaultPubTime).trim();
+const teeTime = (prompt("Enter your target tee time (e.g., 09:10):") || '').trim();
+if (!teeTime) { alert("No tee time entered."); return; }
 
   // Capture target date text (from on-page booking envelope)
   const dateBlock = document.querySelector('span.date-display');

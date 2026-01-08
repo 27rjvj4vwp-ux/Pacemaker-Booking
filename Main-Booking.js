@@ -1,19 +1,20 @@
+
 (function () {
   // Passkey prompt based on today's date
-  //const secret = String.fromCharCode(51, 56, 52, 54); // "3846"
-  //const baseCode = secret;
-  //const days = ["S", "M", "T", "W", "T", "F", "S"];
-  //const today = new Date();
-  //const dayLetter = days[today.getDay()];
-  //const expectedPass = baseCode + dayLetter;
+//  const secret = String.fromCharCode(51, 56, 52, 54); // "3846"
+//  const baseCode = secret;
+//  const days = ["S", "M", "T", "W", "T", "F", "S"];
+//  const today = new Date();
+//  const dayLetter = days[today.getDay()];
+//  const expectedPass = baseCode + dayLetter;
 
-  //const passkey = prompt("Booking tool V1.7 : Pacemakers use only.\nPlease enter the passcode:");
-  //if (passkey !== expectedPass) { alert("Access denied."); return; }
+//  const passkey = prompt("Booking tool V1.7 : Pacemakers use only.\nPlease enter the passcode:");
+//  if (passkey !== expectedPass) { alert("Access denied."); return; }
 
   // Dynamic publish time for testing
   const defaultPubTime = "07:45";
-  const newpubtime = (prompt("Booking tool V1.7 : Pacemakers use only.\nEnter publish time (HH:MM) or leave blank for default 07:45:") || defaultPubTime).trim();
-  const teeTime = prompt("Enter your target tee time (e.g., 09:10):");
+//  const newpubtime = (prompt("Enter publish time (HH:MM) or leave blank for default 07:45:") || defaultPubTime).trim();
+  const teeTime = prompt("Booking tool V1.7 : Pacemakers use only.\nEnter your target tee time (e.g., 09:10):");
   if (!teeTime) { alert("No tee time entered."); return; }
 
   // Capture target date

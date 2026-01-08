@@ -8,7 +8,7 @@
 //  const dayLetter = days[today.getDay()];
 //  const expectedPass = baseCode + dayLetter;
 
-//  const passkey = prompt("Booking tool V1.7 : Pacemakers use only.\nPlease enter the passcode:");
+//  const passkey = prompt("Booking tool V1.7.1 : Pacemakers use only.\nPlease enter the passcode:");
 //  if (passkey !== expectedPass) { alert("Access denied."); return; }
 
   // Dynamic publish time for testing

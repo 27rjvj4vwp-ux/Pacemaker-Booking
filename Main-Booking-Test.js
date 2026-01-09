@@ -2,8 +2,8 @@
 (function () {
 
   // Dynamic publish time for testing
-  const defaultPubTime = "07:45";
-  const newpubtime = (prompt("Enter publish time (HH:MM) or leave blank for default 07:45:") || defaultPubTime).trim();
+  const newpubtime = "07:45";
+  // const newpubtime = (prompt("Enter publish time (HH:MM) or leave blank for default 07:45:") || defaultPubTime).trim();
   const teeTime = prompt("Booking tool V2.0 Test: Pacemakers use only.\nEnter your target tee time (e.g., 09:10):");
   if (!teeTime) { alert("No tee time entered."); return; }
 

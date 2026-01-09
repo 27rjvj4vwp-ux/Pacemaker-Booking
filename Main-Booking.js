@@ -1,4 +1,4 @@
-// Development testing code
+// Version 2.0
 (function () {
 
   // Dynamic publish time for testing

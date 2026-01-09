@@ -1,4 +1,4 @@
-// Booking Tool V2.0
+// Booking Tool V2.0 Test
 (function () {
 
   // Dynamic publish time for testing

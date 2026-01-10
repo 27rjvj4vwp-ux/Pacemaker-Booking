@@ -27,7 +27,7 @@
   }
   const bookingSystemDate = getBookingSystemDate(targetDateText);
 
-  const message = `Waiting until ${newpubtime} UK time to book ${teeTime} on ${targetDateText}\nDo not press Reset.`;
+  const message = `Wait until ${newpubtime} UK time to book ${teeTime} on ${targetDateText}.\nDo not press Reset.\nPress OK to enter Wait.`;
   if (!confirm(message)) { alert('Booking cancelled.'); return; }
 
   const prevArrow = document.querySelector('a[data-direction="prev"]');
@@ -57,7 +57,7 @@
 
     let delay = targetUK.getTime() - ukNow.getTime();
     if (delay <= 0) {
-      alert('Publish time for today has passed.');
+      alert('Warning: Publish time for today has passed.');
       return;
     }
 

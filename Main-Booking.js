@@ -27,7 +27,7 @@
   }
   const bookingSystemDate = getBookingSystemDate(targetDateText);
 
-  const message = `Wait until ${newpubtime} UK time to book ${teeTime} on ${targetDateText}.\nDo not press Reset.\nPress OK to enter Wait.`;
+  const message = `${teeTime} on ${targetDateText} selected.\nProcess will wait until ${newpubtime} UK time to book.\nDo not press Reset. Press OK to continue.`;
   if (!confirm(message)) { alert('Booking cancelled.'); return; }
 
   const prevArrow = document.querySelector('a[data-direction="prev"]');

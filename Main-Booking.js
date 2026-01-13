@@ -1,7 +1,7 @@
 // Version 2.1 (Clean version for live use)
 (function () {
 
-    // Dynamic publish time for testing
+    // Use dynamic publish time for testing
     const newpubtime = "07:45"; // change to defaultPubTime = "07:45"; for testing
     // const newpubtime = (prompt("Enter publish time (HH:MM) or leave blank for default 07:45:") || defaultPubTime).trim();
     const teeTime = prompt("Booking tool V2.1 : Pacemakers use only.\nEnter your target tee time (e.g., 09:10):");

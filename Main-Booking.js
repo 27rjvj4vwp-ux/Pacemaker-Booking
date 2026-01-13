@@ -1,10 +1,11 @@
-// Version 2.0
+
+// Version 2.3 (Clean version for live use)
 (function () {
 
   // Dynamic publish time for testing
-  const newpubtime = "07:45";
-  // const newpubtime = (prompt("Enter publish time (HH:MM) or leave blank for default 07:45:") || defaultPubTime).trim();
-  const teeTime = prompt("Booking tool V2.0 : Pacemakers use only.\nEnter your target tee time (e.g., 09:10):");
+  const defaultPubTime = "07:45";
+  const newpubtime = (prompt("Enter publish time (HH:MM) or leave blank for default 07:45:") || defaultPubTime).trim();
+  const teeTime = prompt("Booking tool V2.3 : Pacemakers use only.\nEnter your target tee time (e.g., 09:10):");
   if (!teeTime) { alert("No tee time entered."); return; }
 
   // Capture target date
@@ -33,29 +34,30 @@
   const prevArrow = document.querySelector('a[data-direction="prev"]');
   if (prevArrow) {
     prevArrow.click();
+
     waitUntilUKTime(newpubtime, function () {
       const nextArrow = document.querySelector('a[data-direction="next"]');
       if (nextArrow) {
         nextArrow.click();
-      } else { alert('Next day arrow not found!'); return; }
 
-      waitForDateDisplay(targetDateText, function () {
-        waitForBookingSlot(teeTime, bookingSystemDate, 10000, function (btn) {
-          btn.click();
-          waitForConfirmationButton(5000);
+        waitForDateDisplay(targetDateText, function () {
+          waitForBookingSlot(teeTime, bookingSystemDate, 15000, function (btn) {
+            btn.click();
+            waitForConfirmationButton(5000);
+          });
         });
-      });
+      } else { alert('Next day arrow not found!'); return; }
     });
   } else { alert('Previous day arrow not found!'); }
 
- // --- Fixed wait logic: UK time, safe delay calculation ---
+  // --- Wake-up logic (UK time) ---
   function waitUntilUKTime(timeStr, cb) {
     const [h, m] = timeStr.split(':').map(Number);
-    const ukNow = new Date(new Date().toLocaleString("en-GB", { timeZone: "Europe/London" }));
-    const targetUK = new Date(ukNow);
-    targetUK.setHours(h, m, 0, 0);
+    const now = new Date();
+    const target = new Date(now);
+    target.setHours(h, m, 0, 0);
 
-    let delay = targetUK.getTime() - ukNow.getTime();
+    let delay = target.getTime() - now.getTime();
     if (delay <= 0) {
       alert('Warning: Publish time for today has passed.');
       return;
@@ -65,14 +67,14 @@
     delay = Math.max(0, delay - 3000);
     setTimeout(() => {
       const tick = () => {
-        if (new Date(new Date().toLocaleString("en-GB", { timeZone: "Europe/London" })).getTime() >= targetUK.getTime()) cb();
+        if (Date.now() >= target.getTime()) cb();
         else setTimeout(tick, 5);
       };
       tick();
     }, delay);
   }
 
-function waitForDateDisplay(targetDateText, cb) {
+  function waitForDateDisplay(targetDateText, cb) {
     const dateBlock = document.querySelector('span.date-display');
     if (!dateBlock) { alert('Date block not found!'); return; }
     const start = Date.now();
@@ -82,8 +84,14 @@ function waitForDateDisplay(targetDateText, cb) {
         setTimeout(cb, 100);
         return;
       }
-      if (Date.now() - start < 5000) setTimeout(poll, 10);
-      else alert('Date update not detected in time. Please check manually.');
+      if (Date.now() - start < 15000) setTimeout(poll, 10);
+      else {
+        const nextArrow = document.querySelector('a[data-direction="next"]');
+        if (nextArrow) {
+          nextArrow.click();
+          setTimeout(poll, 500);
+        } else alert('Next day arrow not found for retry!');
+      }
     }
     poll();
   }
@@ -135,3 +143,4 @@ function waitForDateDisplay(targetDateText, cb) {
     check();
   }
 })();
+``

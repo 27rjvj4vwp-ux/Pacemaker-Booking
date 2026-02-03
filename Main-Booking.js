@@ -1,10 +1,11 @@
-// Version 2.2 (Improvements to waitUntilUKTime(), slot detection and DOM stabilisation)
+// Version 2.3 (Adds "after newpubtime" confirmation logic)
 (function () {
 
     // Flip dynamic publish time for testing
     const newpubtime = "07:45"; // change to defaultPubTime = "07:45"; for testing
-    //const newpubtime = (prompt("Enter publish time (HH:MM) or leave blank for default 07:45:") || defaultPubTime).trim();
-    const teeTime = prompt("Booking tool V2.2 : Pacemakers use only.\nEnter your target tee time (e.g., 09:10):");
+    //const newpubtime = (prompt("Enter publish time (HH:MM) or leave blank for default:") || defaultPubTime).trim();
+
+    const teeTime = prompt("Booking tool V2.3 : Pacemakers use only.\nEnter your target tee time (e.g., 09:10):");
     if (!teeTime) { alert("No tee time entered."); return; }
 
     const dateBlock = document.querySelector('span.date-display');
@@ -26,8 +27,46 @@
     }
     const bookingSystemDate = getBookingSystemDate(targetDateText);
 
-    const message = `${teeTime} on ${targetDateText} selected.\nProcess will wait until ${newpubtime} UK time to book.\nDo not press Reset. Press OK to continue.`;
-    if (!confirm(message)) { alert('Booking cancelled.'); return; }
+    // -------------------------------------------------------------------------
+    // NEW LOGIC: Detect whether newpubtime is in the past, and confirm behaviour
+    // -------------------------------------------------------------------------
+
+    const now = new Date();
+    const [pubH, pubM] = newpubtime.split(':').map(Number);
+    const targetPub = new Date();
+    targetPub.setHours(pubH, pubM, 0, 0);
+
+    const publishInFuture = (targetPub.getTime() - now.getTime()) > 0;
+
+    if (publishInFuture) {
+        // NORMAL CASE (e.g., 06:30 → 07:45 still ahead)
+        const message =
+            `${teeTime} on ${targetDateText} selected.\n` +
+            `Process will wait until ${newpubtime} UK time to book.\n` +
+            `Do not press Reset. Press OK to continue.`;
+
+        if (!confirm(message)) {
+            alert('Booking cancelled.'); 
+            return;
+        }
+
+    } else {
+        // AFTER PUBLISH TIME (e.g., 08:00 → 07:45 has passed)
+        const message =
+            `${teeTime} on ${targetDateText} selected.\n` +
+            `${newpubtime} UK time has already passed.\n` +
+            `Do you want to book immediately?`;
+
+        if (!confirm(message)) {
+            alert('Booking cancelled.');
+            return;
+        }
+        // If user confirms → proceed immediately without waiting
+    }
+
+    // -----------------------------------------------------------
+    // EXISTING LOGIC (unchanged)
+    // -----------------------------------------------------------
 
     const prevArrow = document.querySelector('a[data-direction="prev"]');
     if (prevArrow) {
@@ -51,15 +90,15 @@
                             });
                         });
 
-                    }, 150); // 150 ms stabilisation
+                    }, 150);
                 } else { alert('Next day arrow not found!'); return; }
             });
 
-        }, 150); // 150 ms stabilisation after clicking previous
+        }, 150);
     } else { alert('Previous day arrow not found!'); return; }
 
     // -----------------------------------------------------------
-    // Robust waitUntilUKTime() 
+    // Robust waitUntilUKTime()
     // -----------------------------------------------------------
     function waitUntilUKTime(timeStr, cb) {
         const [h, m] = timeStr.split(':').map(Number);
@@ -89,7 +128,7 @@
     }
 
     // -----------------------------------------------------------
-    // Improved date display polling with initial grace period
+    // Improved date display polling
     // -----------------------------------------------------------
     function waitForDateDisplay(targetDateText, cb) {
         const dateBlock = document.querySelector('span.date-display');
@@ -97,7 +136,6 @@
 
         const start = Date.now();
 
-        // Give DOM a moment before starting to poll
         setTimeout(function poll() {
             const newText = dateBlock.textContent.trim();
             if (newText.toLowerCase() === targetDateText.toLowerCase()) {
@@ -116,7 +154,7 @@
     }
 
     // -----------------------------------------------------------
-    // Stronger, safer booking table detection and slot polling
+    // Stronger booking slot detection
     // -----------------------------------------------------------
     function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
         const start = Date.now();
@@ -130,13 +168,11 @@
 
             const rows = Array.from(table.querySelectorAll('tr'));
 
-            // If table exists but no rows yet → wait
             if (rows.length === 0) {
                 if (Date.now() - start < timeoutMs) return setTimeout(check, 50);
                 return alert('Booking rows did not load in time.');
             }
 
-            // Now scan for the target slot
             for (const row of rows) {
                 const timeCell = row.querySelector('th.slot-time');
                 if (timeCell && timeCell.textContent.trim() === targetTime) {
@@ -153,7 +189,6 @@
                 }
             }
 
-            // Not found yet → keep polling
             if (Date.now() - start < timeoutMs) return setTimeout(check, 30);
 
             alert('Book button not found for ' + targetTime + ' on correct date');

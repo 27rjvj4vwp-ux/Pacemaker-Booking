@@ -1,4 +1,4 @@
-// Version 2.4.3 (Explicitly checks for "Book" button on target slot; alerts if not bookable)
+// Version 2.4.6 (Shorter not-bookable wait, max next-day retries)
 (function () {
 
     // --- Configuration ---
@@ -6,7 +6,7 @@
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.4.3 : Pacemakers use only.\n" +
+        "Booking tool V2.4.6 : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
     if (!teeTimeRaw) { alert("No tee time entered."); return; }
@@ -90,7 +90,8 @@
 
                 waitForDateDisplay(targetDateText, () => {
 
-                    waitForBookingSlot(teeTime, bookingSystemDate, 15000, (btn) => {
+                    // --- Shorter not-bookable wait: 2 seconds ---
+                    waitForBookingSlot(teeTime, bookingSystemDate, 2000, (btn) => {
                         btn.click();
                         waitForConfirmationButton(5000);
                     });
@@ -132,11 +133,14 @@
         scheduler();
     }
 
+    // --- Add max retry count to prevent infinite next-day cycling ---
     function waitForDateDisplay(targetDateText, cb) {
         const block = document.querySelector('span.date-display');
         if (!block) { alert("Date missing"); return; }
 
         const start = Date.now();
+        let nextDayClicks = 0;
+        const maxNextDayClicks = 3; // Limit to 3 cycles
 
         setTimeout(function poll() {
             const txt = block.textContent.trim();
@@ -150,12 +154,13 @@
             }
 
             const next = document.querySelector('a[data-direction="next"]');
-            if (next) {
+            if (next && nextDayClicks < maxNextDayClicks) {
+                nextDayClicks++;
                 next.click();
                 return setTimeout(poll, 500);
             }
 
-            alert("Next arrow missing");
+            alert("Failed to find the correct date after several attempts. Please check the booking sheet and try again.");
         }, 150);
     }
 

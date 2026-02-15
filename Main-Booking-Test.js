@@ -1,31 +1,30 @@
-// Version 2.4.6 (Shorter not-bookable wait, max next-day retries)
+// Version 2.4.7 (Prevents multiple simultaneous runs)
 (function () {
+    if (window.pacemakerScriptRunning) {
+        alert("Booking script is already running!");
+        return;
+    }
+    window.pacemakerScriptRunning = true;
 
     // --- Configuration ---
     const newpubtime = "07:45"; // Change for summer if needed
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.4.6 : Pacemakers use only.\n" +
+        "Booking tool V2.4.7 : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
-    if (!teeTimeRaw) { alert("No tee time entered."); return; }
+    if (!teeTimeRaw) { window.pacemakerScriptRunning = false; alert("No tee time entered."); return; }
 
     // Extract clean HH:MM pattern
     const match = teeTimeRaw.match(/\b\d{1,2}:\d{2}\b/);
-    if (!match) {
-        alert("Invalid tee time entered.");
-        return;
-    }
+    if (!match) { window.pacemakerScriptRunning = false; alert("Invalid tee time entered."); return; }
     const teeTime = match[0];
 
     // --- Target Date ---
     const dateBlock = document.querySelector('span.date-display');
     const targetDateText = dateBlock ? dateBlock.textContent.trim() : '';
-    if (!targetDateText) {
-        alert('Target date not found on page.');
-        return;
-    }
+    if (!targetDateText) { window.pacemakerScriptRunning = false; alert('Target date not found on page.'); return; }
 
     function getBookingSystemDate(str) {
         let parts = str.replace(',', '').split(' ');
@@ -56,21 +55,18 @@
             `${teeTime} on ${targetDateText} selected.\n` +
             `Process will wait until ${newpubtime} UK time to book.\n` +
             `Do not press Reset.`;
-        if (!confirm(msg)) { return; }
+        if (!confirm(msg)) { window.pacemakerScriptRunning = false; return; }
     } else {
         const msg =
             `${teeTime} on ${targetDateText} selected.\n` +
             `${newpubtime} has passed.\n` +
             `Book immediately?`;
-        if (!confirm(msg)) { return; }
+        if (!confirm(msg)) { window.pacemakerScriptRunning = false; return; }
     }
 
     // --- Prev → Wait → Next ---
     const prevArrow = document.querySelector('a[data-direction="prev"]');
-    if (!prevArrow) {
-        alert('Previous day arrow not found!');
-        return;
-    }
+    if (!prevArrow) { window.pacemakerScriptRunning = false; alert('Previous day arrow not found!'); return; }
 
     prevArrow.click();
 
@@ -79,10 +75,7 @@
         waitUntilUKTime(newpubtime, () => {
 
             const nextArrow = document.querySelector('a[data-direction="next"]');
-            if (!nextArrow) {
-                alert("Next day arrow not found!");
-                return;
-            }
+            if (!nextArrow) { window.pacemakerScriptRunning = false; alert("Next day arrow not found!"); return; }
 
             nextArrow.click();
 
@@ -90,7 +83,6 @@
 
                 waitForDateDisplay(targetDateText, () => {
 
-                    // --- Shorter not-bookable wait: 2 seconds ---
                     waitForBookingSlot(teeTime, bookingSystemDate, 2000, (btn) => {
                         btn.click();
                         waitForConfirmationButton(5000);
@@ -133,10 +125,9 @@
         scheduler();
     }
 
-    // --- Add max retry count to prevent infinite next-day cycling ---
     function waitForDateDisplay(targetDateText, cb) {
         const block = document.querySelector('span.date-display');
-        if (!block) { alert("Date missing"); return; }
+        if (!block) { window.pacemakerScriptRunning = false; alert("Date missing"); return; }
 
         const start = Date.now();
         let nextDayClicks = 0;
@@ -160,11 +151,11 @@
                 return setTimeout(poll, 500);
             }
 
+            window.pacemakerScriptRunning = false;
             alert("Failed to find the correct date after several attempts. Please check the booking sheet and try again.");
         }, 150);
     }
 
-    // --- KEY CHANGE: waitForBookingSlot now checks for slot row but no Book button ---
     function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
         const start = Date.now();
 
@@ -175,6 +166,7 @@
                 if (Date.now() - start < timeoutMs) {
                     return setTimeout(check, 50);
                 }
+                window.pacemakerScriptRunning = false;
                 return alert("Booking table not found!");
             }
 
@@ -183,6 +175,7 @@
                 if (Date.now() - start < timeoutMs) {
                     return setTimeout(check, 50);
                 }
+                window.pacemakerScriptRunning = false;
                 return alert("Booking rows did not load");
             }
 
@@ -205,7 +198,7 @@
                         if (btn) {
                             return cb(btn, row);
                         } else {
-                            // --- NEW: Slot exists but is not bookable ---
+                            window.pacemakerScriptRunning = false;
                             alert("The selected tee time (" + targetTime + ") is not available to book.");
                             return;
                         }
@@ -218,6 +211,7 @@
             }
 
             if (!slotRowFound) {
+                window.pacemakerScriptRunning = false;
                 alert("Book button not found for " + targetTime + " on correct date");
             }
         }
@@ -245,6 +239,7 @@
 
                 logs.push({ iso: nowISO, perf: nowPerf });
                 localStorage.setItem('bookingTimes', JSON.stringify(logs));
+                window.pacemakerScriptRunning = false;
                 return;
             }
 
@@ -252,6 +247,7 @@
                 return setTimeout(check, 20);
             }
 
+            window.pacemakerScriptRunning = false;
             alert("Confirmation not found for " + teeTime);
         }
 

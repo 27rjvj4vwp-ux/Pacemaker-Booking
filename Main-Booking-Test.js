@@ -227,8 +227,9 @@
                 b.textContent.includes(teeTime)
             );
             if (c) {
-                c.click();
+                // ✅ FIX: log BEFORE clicking confirm (prevents missing log on fast navigation/unload)
                 logBookingTime();
+                c.click();
                 return;
             }
             if (Date.now() - start < timeoutMs) {

@@ -1,4 +1,4 @@
-// Version 2.5.4 (robust selectors, polling confirmation handler, clean logging)
+// Version 2.5.5 (robust selectors, improved confirmation handling, safe logging for high-speed connections)
 (function () {
 
     // --- Configuration ---
@@ -10,7 +10,7 @@
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.5.4 : Pacemakers use only.\n" +
+        "Booking tool V2.5.5 : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
     if (!teeTimeRaw) { alert("No tee time entered."); return; }
@@ -214,7 +214,7 @@
         check();
     }
 
-    // --- Confirmation pop-up handler using polling only ---
+    // --- Confirmation pop-up handler (improved for fast connections) ---
     function waitForConfirmationButtonPolling(teeTime, timeoutMs) {
         const start = Date.now();
         const pollInterval = 20;
@@ -226,12 +226,20 @@
                 b.textContent.toLowerCase().includes("book teetime at") &&
                 b.textContent.includes(teeTime)
             );
+
             if (c) {
-                // ✅ FIX: log BEFORE clicking confirm (prevents missing log on fast navigation/unload)
+                // --- CRITICAL FIX ---
+                // Write log BEFORE confirming, then delay the click slightly
+                // to prevent Safari/Edge dropping JS during fast navigation.
                 logBookingTime();
-                c.click();
+
+                setTimeout(() => {
+                    c.click();
+                }, 50);
+
                 return;
             }
+
             if (Date.now() - start < timeoutMs) {
                 setTimeout(check, pollInterval);
             } else {
@@ -241,21 +249,18 @@
         check();
     }
 
-    // --- Improved logging function ---
+    // --- Logging function (unchanged format) ---
     function logBookingTime() {
         let elapsedMs;
         const now = new Date();
 
         if (dynamicBaseline !== null) {
-            // Immediate booking mode: use dynamic baseline
             elapsedMs = performance.now() - dynamicBaseline;
         } else if (fixedBaseline !== null) {
-            // Scheduled booking: use fixed baseline (e.g., 07:45 or 07:15)
             const baseline = new Date(now);
             baseline.setHours(pubH, pubM, 0, 0);
             elapsedMs = now.getTime() - baseline.getTime();
         } else {
-            // Fallback: just use performance.now()
             elapsedMs = performance.now();
         }
 

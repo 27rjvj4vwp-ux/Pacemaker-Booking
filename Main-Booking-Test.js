@@ -277,7 +277,8 @@
             now.getSeconds().toString().padStart(2, '0') + "." +
             Math.floor(elapsedMs).toString().padStart(3, '0')
         ].join(',');
-
+        // debug output
+        console.log("Booking log entry.",entry);
         const logs = JSON.parse(localStorage.getItem('bookingTimes') || '[]');
         logs.push(entry);
         localStorage.setItem('bookingTimes', JSON.stringify(logs));

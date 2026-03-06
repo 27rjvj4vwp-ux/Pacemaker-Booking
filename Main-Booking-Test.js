@@ -1,8 +1,8 @@
-// Version 2.5.2 (robust slot booking and confirmation pop-up handling)
+// Version 2.5.3 (robust selectors and improved logging)
 (function () {
 
     // --- Configuration ---
-    const newpubtime = "07:45"; // Default publish time
+    const newpubtime = "07:45"; // Change to "07:15" for summer booking
 
     // --- Timing Baseline (dynamic for immediate bookings) ---
     let dynamicBaseline = null; // For immediate booking
@@ -10,7 +10,7 @@
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.5.2 : Pacemakers use only.\n" +
+        "Booking tool V2.5.3 : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
     if (!teeTimeRaw) { alert("No tee time entered."); return; }
@@ -252,19 +252,23 @@
         tryClickConfirmation();
     }
 
-    // --- Logging function ---
+    // --- Improved logging function ---
     function logBookingTime() {
         let elapsedMs;
-        if (dynamicBaseline !== null) {
-            // Immediate booking mode
-            elapsedMs = performance.now() - dynamicBaseline;
-        } else {
-            // Normal booking → baseline is fixed 07:45
-            const nowActual = performance.now();
-            elapsedMs = nowActual; // behaviour preserved
-        }
-
         const now = new Date();
+
+        if (dynamicBaseline !== null) {
+            // Immediate booking mode: use dynamic baseline
+            elapsedMs = performance.now() - dynamicBaseline;
+        } else if (fixedBaseline !== null) {
+            // Scheduled booking: use fixed baseline (e.g., 07:45 or 07:15)
+            const baseline = new Date(now);
+            baseline.setHours(pubH, pubM, 0, 0);
+            elapsedMs = now.getTime() - baseline.getTime();
+        } else {
+            // Fallback: just use performance.now()
+            elapsedMs = performance.now();
+        }
 
         const entry = [
             now.toLocaleDateString('en-GB'),

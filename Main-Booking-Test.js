@@ -1,4 +1,4 @@
-// Version 2.5.1 (robust confirmation pop-up handling with MutationObserver)
+// Version 2.5.2 (robust slot booking and confirmation pop-up handling)
 (function () {
 
     // --- Configuration ---
@@ -10,7 +10,7 @@
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.5.1 : Pacemakers use only.\n" +
+        "Booking tool V2.5.2 : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
     if (!teeTimeRaw) { alert("No tee time entered."); return; }
@@ -166,6 +166,7 @@
         }, 150);
     }
 
+    // --- Robust slot booking button selector ---
     function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
         const start = Date.now();
 
@@ -190,13 +191,14 @@
                 if (tCell.textContent.trim() === targetTime) {
                     const dateInput = row.querySelector('input[name="date"]');
                     if (dateInput && dateInput.value === bookingSystemDate) {
-
-                        let btn = row.querySelector('a.button.inlineBooking.btn-success');
-                        if (!btn) {
-                            btn = Array.from(row.querySelectorAll('button'))
-                                .find(b => /book/i.test(b.textContent.trim()));
-                        }
-
+                        // Robust selector for slot booking button
+                        let btn = Array.from(row.querySelectorAll('a, button')).find(b =>
+                            b.className &&
+                            b.className.includes('inlineBooking') &&
+                            b.className.includes('btn-success') &&
+                            b.textContent &&
+                            b.textContent.trim().toLowerCase() === 'book'
+                        );
                         if (btn) return cb(btn, row);
 
                         return alert("The selected tee time is not available.");
@@ -212,17 +214,19 @@
         check();
     }
 
-    // --- MutationObserver-based confirmation pop-up handler ---
+    // --- MutationObserver-based confirmation pop-up handler with tolerant selector ---
     function waitForConfirmationButtonMutationObserver(teeTime, timeoutMs) {
-        const confirmationText = `Book tee time at ${teeTime}`;
         let found = false;
         let timer;
 
-        // Callback for observer
         function tryClickConfirmation() {
             const btns = Array.from(document.querySelectorAll('button, a'));
-            const c = btns.find(b => b.textContent.trim() === confirmationText);
-
+            // Match if text contains "Book teetime at" and the teeTime
+            const c = btns.find(b =>
+                b.textContent &&
+                b.textContent.toLowerCase().includes("book teetime at") &&
+                b.textContent.includes(teeTime)
+            );
             if (c && !found) {
                 found = true;
                 c.click();
@@ -232,14 +236,11 @@
             }
         }
 
-        // Set up MutationObserver to watch for DOM changes
         const observer = new MutationObserver(tryClickConfirmation);
         observer.observe(document.body, { childList: true, subtree: true });
 
-        // Also poll every 20ms in case observer misses it
         timer = setInterval(tryClickConfirmation, 20);
 
-        // Timeout after timeoutMs
         setTimeout(() => {
             if (!found) {
                 if (observer) observer.disconnect();
@@ -248,7 +249,6 @@
             }
         }, timeoutMs);
 
-        // Initial check in case it's already present
         tryClickConfirmation();
     }
 

@@ -1,4 +1,4 @@
-// Version 2.5.3 (robust selectors and improved logging)
+// Version 2.5.4 (robust selectors, polling confirmation handler, clean logging)
 (function () {
 
     // --- Configuration ---
@@ -10,7 +10,7 @@
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.5.3 : Pacemakers use only.\n" +
+        "Booking tool V2.5.4 : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
     if (!teeTimeRaw) { alert("No tee time entered."); return; }
@@ -92,7 +92,7 @@
 
                     waitForBookingSlot(teeTime, bookingSystemDate, 2000, (btn) => {
                         btn.click();
-                        waitForConfirmationButtonMutationObserver(teeTime, 5000);
+                        waitForConfirmationButtonPolling(teeTime, 5000);
                     });
 
                 });
@@ -214,42 +214,30 @@
         check();
     }
 
-    // --- MutationObserver-based confirmation pop-up handler with tolerant selector ---
-    function waitForConfirmationButtonMutationObserver(teeTime, timeoutMs) {
-        let found = false;
-        let timer;
+    // --- Confirmation pop-up handler using polling only ---
+    function waitForConfirmationButtonPolling(teeTime, timeoutMs) {
+        const start = Date.now();
+        const pollInterval = 20;
 
-        function tryClickConfirmation() {
+        function check() {
             const btns = Array.from(document.querySelectorAll('button, a'));
-            // Match if text contains "Book teetime at" and the teeTime
             const c = btns.find(b =>
                 b.textContent &&
                 b.textContent.toLowerCase().includes("book teetime at") &&
                 b.textContent.includes(teeTime)
             );
-            if (c && !found) {
-                found = true;
+            if (c) {
                 c.click();
-                if (timer) clearTimeout(timer);
-                if (observer) observer.disconnect();
                 logBookingTime();
+                return;
             }
-        }
-
-        const observer = new MutationObserver(tryClickConfirmation);
-        observer.observe(document.body, { childList: true, subtree: true });
-
-        timer = setInterval(tryClickConfirmation, 20);
-
-        setTimeout(() => {
-            if (!found) {
-                if (observer) observer.disconnect();
-                if (timer) clearInterval(timer);
+            if (Date.now() - start < timeoutMs) {
+                setTimeout(check, pollInterval);
+            } else {
                 alert("Confirmation pop-up not found for " + teeTime);
             }
-        }, timeoutMs);
-
-        tryClickConfirmation();
+        }
+        check();
     }
 
     // --- Improved logging function ---
@@ -277,8 +265,7 @@
             now.getSeconds().toString().padStart(2, '0') + "." +
             Math.floor(elapsedMs).toString().padStart(3, '0')
         ].join(',');
-        // debug output
-        console.log("Booking log entry.",entry);
+
         const logs = JSON.parse(localStorage.getItem('bookingTimes') || '[]');
         logs.push(entry);
         localStorage.setItem('bookingTimes', JSON.stringify(logs));

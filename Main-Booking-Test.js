@@ -1,16 +1,16 @@
-// Version 2.5.5 (robust selectors, improved confirmation handling, safe logging for high-speed connections)
+// Version 2.5.6 — Intelligent confirmation detection + Safari-safe logging
 (function () {
 
     // --- Configuration ---
-    const newpubtime = "07:45"; // Change to "07:15" for summer booking
+    const newpubtime = "07:45"; // "07:15" in summer
 
-    // --- Timing Baseline (dynamic for immediate bookings) ---
-    let dynamicBaseline = null; // For immediate booking
-    let fixedBaseline = null;   // For normal booking
+    // --- Timing Baseline ---
+    let dynamicBaseline = null;
+    let fixedBaseline = null;
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.5.5 : Pacemakers use only.\n" +
+        "Booking tool V2.5.6 : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
     if (!teeTimeRaw) { alert("No tee time entered."); return; }
@@ -22,86 +22,73 @@
     // --- Target Date ---
     const dateBlock = document.querySelector('span.date-display');
     const targetDateText = dateBlock ? dateBlock.textContent.trim() : '';
-    if (!targetDateText) { alert('Target date not found on page.'); return; }
+    if (!targetDateText) { alert("Target date not found on this page."); return; }
 
     function getBookingSystemDate(str) {
         let parts = str.replace(',', '').split(' ');
         let day = parts[1].replace(/\D/g, '').padStart(2, '0');
         let monthName = parts[2];
-        let year = parts[3] || (new Date().getFullYear().toString());
+        let year = parts[3] || (new Date().getFullYear());
         const monthMap = {
-            'January': '01', 'February': '02', 'March': '03', 'April': '04',
-            'May': '05', 'June': '06', 'July': '07', 'August': '08',
-            'September': '09', 'October': '10', 'November': '11', 'December': '12'
+            January: '01', February: '02', March: '03', April: '04',
+            May: '05', June: '06', July: '07', August: '08',
+            September: '09', October: '10', November: '11', December: '12'
         };
-        let month = monthMap[monthName];
-        return `${day}-${month}-${year}`;
+        return `${day}-${monthMap[monthName]}-${year}`;
     }
 
     const bookingSystemDate = getBookingSystemDate(targetDateText);
 
-    // --- Determines Normal vs Immediate Mode ---
+    // --- Determine Mode ---
     const now = new Date();
     const [pubH, pubM] = newpubtime.split(':').map(Number);
     const targetPub = new Date();
     targetPub.setHours(pubH, pubM, 0, 0);
+    const publishInFuture = targetPub.getTime() - now.getTime() > 0;
 
-    const publishInFuture = (targetPub.getTime() - now.getTime()) > 0;
-
-    // --- User Confirmation & Baseline Assignment ---
     if (publishInFuture) {
-        // Normal booking
-        const msg =
+        // Scheduled mode
+        if (!confirm(
             `${teeTime} on ${targetDateText} selected.\n` +
-            `Process will wait until ${newpubtime} UK time to book.\n` +
-            `Do not press Reset.`;
-        if (!confirm(msg)) return;
+            `Process will wait until ${newpubtime} UK time.\n` +
+            `Do not press Reset.`
+        )) return;
 
         fixedBaseline = new Date();
         fixedBaseline.setHours(pubH, pubM, 0, 0);
 
     } else {
-        // Immediate booking → set dynamic baseline
-        const msg =
+        // Immediate mode
+        if (!confirm(
             `${teeTime} on ${targetDateText} selected.\n` +
             `${newpubtime} has passed.\n` +
-            `Book immediately?`;
-        if (!confirm(msg)) return;
+            `Book immediately?`
+        )) return;
 
-        dynamicBaseline = performance.now(); // new baseline
+        dynamicBaseline = performance.now();
     }
 
-    // --- Prev → Wait → Next ---
+    // --- Navigate Prev → Wait → Next ---
     const prevArrow = document.querySelector('a[data-direction="prev"]');
-    if (!prevArrow) { alert('Previous day arrow not found!'); return; }
-
+    if (!prevArrow) { alert("Previous day arrow not found!"); return; }
     prevArrow.click();
 
-    setTimeout(() => {
+    setTimeout(() => waitUntilUKTime(newpubtime, () => {
 
-        waitUntilUKTime(newpubtime, () => {
+        const nextArrow = document.querySelector('a[data-direction="next"]');
+        if (!nextArrow) { alert("Next day arrow not found!"); return; }
+        nextArrow.click();
 
-            const nextArrow = document.querySelector('a[data-direction="next"]');
-            if (!nextArrow) { alert("Next day arrow not found!"); return; }
+        setTimeout(() => waitForDateDisplay(targetDateText, () => {
 
-            nextArrow.click();
+            waitForBookingSlot(teeTime, bookingSystemDate, 2000, (btn) => {
+                btn.click();
+                waitForConfirmationButtonPolling(teeTime, 5000);
+            });
 
-            setTimeout(() => {
+        }), 150);
 
-                waitForDateDisplay(targetDateText, () => {
-
-                    waitForBookingSlot(teeTime, bookingSystemDate, 2000, (btn) => {
-                        btn.click();
-                        waitForConfirmationButtonPolling(teeTime, 5000);
-                    });
-
-                });
-
-            }, 150);
-
-        });
-
-    }, 150);
+    }), 150);
 
     // --- SUPPORT FUNCTIONS ---
 
@@ -113,9 +100,7 @@
         const early = 3000;
 
         function scheduler() {
-            const nowMs = Date.now();
-            const diff = target.getTime() - nowMs;
-
+            const diff = target.getTime() - Date.now();
             if (diff <= early) {
                 const loop = () => {
                     if (Date.now() >= target.getTime()) cb();
@@ -123,41 +108,30 @@
                 };
                 return loop();
             }
-
-            const sleep = Math.min(2000, diff - early);
-            setTimeout(scheduler, sleep);
+            setTimeout(scheduler, Math.min(2000, diff - early));
         }
 
-        if (dynamicBaseline !== null) {
-            // Immediate booking → skip wait
-            cb();
-        } else {
-            scheduler();
-        }
+        if (dynamicBaseline !== null) cb();
+        else scheduler();
     }
 
     function waitForDateDisplay(targetDateText, cb) {
         const block = document.querySelector('span.date-display');
-        if (!block) { alert("Date missing"); return; }
+        if (!block) return alert("Date missing!");
 
         const start = Date.now();
-        let nextDayClicks = 0;
-        const maxNextDayClicks = 3;
+        let clicks = 0;
 
         setTimeout(function poll() {
-            const txt = block.textContent.trim();
-
-            if (txt.toLowerCase() === targetDateText.toLowerCase()) {
+            if (block.textContent.trim().toLowerCase() === targetDateText.toLowerCase())
                 return setTimeout(cb, 100);
-            }
 
-            if (Date.now() - start < 15000) {
+            if (Date.now() - start < 15000)
                 return setTimeout(poll, 20);
-            }
 
             const next = document.querySelector('a[data-direction="next"]');
-            if (next && nextDayClicks < maxNextDayClicks) {
-                nextDayClicks++;
+            if (next && clicks < 3) {
+                clicks++;
                 next.click();
                 return setTimeout(poll, 500);
             }
@@ -166,97 +140,94 @@
         }, 150);
     }
 
-    // --- Robust slot booking button selector ---
     function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
         const start = Date.now();
-
         function check() {
             const table = document.querySelector('#member_teetimes');
-
             if (!table) {
                 if (Date.now() - start < timeoutMs) return setTimeout(check, 50);
                 return alert("Booking table not found!");
             }
 
-            const rows = Array.from(table.querySelectorAll('tr'));
-            if (rows.length === 0) {
-                if (Date.now() - start < timeoutMs) return setTimeout(check, 50);
-                return alert("Booking rows not loaded");
-            }
-
-            for (const row of rows) {
+            for (const row of table.querySelectorAll('tr')) {
                 const tCell = row.querySelector('th.slot-time');
-                if (!tCell) continue;
-
-                if (tCell.textContent.trim() === targetTime) {
+                if (tCell && tCell.textContent.trim() === targetTime) {
                     const dateInput = row.querySelector('input[name="date"]');
                     if (dateInput && dateInput.value === bookingSystemDate) {
-                        // Robust selector for slot booking button
-                        let btn = Array.from(row.querySelectorAll('a, button')).find(b =>
+                        const btn = Array.from(row.querySelectorAll('a, button')).find(b =>
                             b.className &&
                             b.className.includes('inlineBooking') &&
                             b.className.includes('btn-success') &&
-                            b.textContent &&
                             b.textContent.trim().toLowerCase() === 'book'
                         );
-                        if (btn) return cb(btn, row);
-
-                        return alert("The selected tee time is not available.");
+                        return btn ? cb(btn) : alert("Selected tee time not available.");
                     }
                 }
             }
 
             if (Date.now() - start < timeoutMs) return setTimeout(check, 30);
-
             alert("Book button not found for " + targetTime);
         }
-
         check();
     }
 
-    // --- Confirmation pop-up handler (improved for fast connections) ---
+    // --- Intelligent Confirmation Button Detection ---
     function waitForConfirmationButtonPolling(teeTime, timeoutMs) {
-        const start = Date.now();
-        const pollInterval = 20;
 
-        function check() {
-            const btns = Array.from(document.querySelectorAll('button, a'));
-            const c = btns.find(b =>
-                b.textContent &&
-                b.textContent.toLowerCase().includes("book teetime at") &&
-                b.textContent.includes(teeTime)
-            );
+        const start = Date.now();
+
+        function isLikelyConfirmationButton(b) {
+            const r = b.getBoundingClientRect();
+            if (r.width < 60 || r.height < 25) return false;
+
+            const style = window.getComputedStyle(b);
+            const bg = style.backgroundColor;
+            if (!bg || bg === "transparent") return false;
+
+            const t = (b.innerText || b.textContent || "").toLowerCase();
+            if (t.includes(teeTime.toLowerCase())) return true;
+            if (t.includes("book") && t.includes("teetime")) return true;
+
+            return false;
+        }
+
+        function poll() {
+            const btns = Array.from(document.querySelectorAll("button, a, input[type=submit]"));
+
+            let c =
+                btns.find(b => (b.innerText || "").toLowerCase().includes("book teetime") &&
+                                (b.innerText || "").includes(teeTime)) ||
+                btns.find(isLikelyConfirmationButton);
 
             if (c) {
-                // --- CRITICAL FIX ---
-                // Write log BEFORE confirming, then delay the click slightly
-                // to prevent Safari/Edge dropping JS during fast navigation.
+                // --- WRITE LOG SAFELY ---
                 logBookingTime();
 
-                setTimeout(() => {
-                    c.click();
-                }, 50);
+                // --- SAFARI-SAFE CONFIRMATION CLICK ---
+                requestAnimationFrame(() => {
+                    setTimeout(() => c.click(), 200);
+                });
 
                 return;
             }
 
-            if (Date.now() - start < timeoutMs) {
-                setTimeout(check, pollInterval);
-            } else {
-                alert("Confirmation pop-up not found for " + teeTime);
-            }
+            if (Date.now() - start < timeoutMs)
+                return setTimeout(poll, 30);
+
+            alert("Confirmation button not found for " + teeTime);
         }
-        check();
+
+        poll();
     }
 
-    // --- Logging function (unchanged format) ---
+    // --- Logging ---
     function logBookingTime() {
-        let elapsedMs;
         const now = new Date();
+        let elapsedMs;
 
-        if (dynamicBaseline !== null) {
+        if (dynamicBaseline !== null)
             elapsedMs = performance.now() - dynamicBaseline;
-        } else if (fixedBaseline !== null) {
+        else if (fixedBaseline !== null) {
             const baseline = new Date(now);
             baseline.setHours(pubH, pubM, 0, 0);
             elapsedMs = now.getTime() - baseline.getTime();

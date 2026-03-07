@@ -1,8 +1,9 @@
-// Version 2.5.6 — Intelligent confirmation detection + Safari-safe logging
+// Version 2.5.6a — Intelligent confirmation detection + Safari-safe logging
 (function () {
 
     // --- Configuration ---
     const newpubtime = "07:45"; // "07:15" in summer
+    window.lastLogAttempt = new Date().toLocaleString('en-GB');
 
     // --- Timing Baseline ---
     let dynamicBaseline = null;
@@ -10,7 +11,7 @@
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.5.6 : Pacemakers use only.\n" +
+        "Booking tool V2.5.6a : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
     if (!teeTimeRaw) { alert("No tee time entered."); return; }

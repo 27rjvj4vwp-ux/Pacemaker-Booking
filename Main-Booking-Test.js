@@ -1,9 +1,8 @@
-// Version 2.5.6a — Intelligent confirmation detection + Safari-safe logging
+// Version 2.5.7 — Overlay-specific confirmation detection, auto-trim log, Safari-safe logging
 (function () {
 
     // --- Configuration ---
     const newpubtime = "07:45"; // "07:15" in summer
-    window.lastLogAttempt = new Date().toLocaleString('en-GB');
 
     // --- Timing Baseline ---
     let dynamicBaseline = null;
@@ -11,7 +10,7 @@
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.5.6a : Pacemakers use only.\n" +
+        "Booking tool V2.5.7 : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
     if (!teeTimeRaw) { alert("No tee time entered."); return; }
@@ -172,39 +171,46 @@
         check();
     }
 
-    // --- Intelligent Confirmation Button Detection ---
+    // --- Overlay-specific Confirmation Button Detection ---
     function waitForConfirmationButtonPolling(teeTime, timeoutMs) {
-
         const start = Date.now();
 
-        function isLikelyConfirmationButton(b) {
-            const r = b.getBoundingClientRect();
-            if (r.width < 60 || r.height < 25) return false;
-
-            const style = window.getComputedStyle(b);
-            const bg = style.backgroundColor;
-            if (!bg || bg === "transparent") return false;
-
-            const t = (b.innerText || b.textContent || "").toLowerCase();
-            if (t.includes(teeTime.toLowerCase())) return true;
-            if (t.includes("book") && t.includes("teetime")) return true;
-
+        function isConfirmationOverlay(el) {
+            // Overlay is floating, not inside tee sheet
+            if (!el) return false;
+            let node = el.parentElement;
+            let depth = 0;
+            while (node && depth < 5) {
+                const style = window.getComputedStyle(node);
+                if (
+                    (style.position === "absolute" || style.position === "fixed") &&
+                    parseInt(style.zIndex, 10) > 100
+                ) return true;
+                node = node.parentElement;
+                depth++;
+            }
             return false;
         }
 
         function poll() {
-            const btns = Array.from(document.querySelectorAll("button, a, input[type=submit]"));
+            // Find all visible buttons/links
+            const btns = Array.from(document.querySelectorAll("button, a, input[type=submit]"))
+                .filter(b => b.offsetParent !== null);
 
-            let c =
-                btns.find(b => (b.innerText || "").toLowerCase().includes("book teetime") &&
-                                (b.innerText || "").includes(teeTime)) ||
-                btns.find(isLikelyConfirmationButton);
+            // Strict text match: "Book teetime at" + teeTime
+            let c = btns.find(b => {
+                const t = (b.innerText || b.value || "").toLowerCase();
+                return (
+                    t.startsWith("book teetime at") &&
+                    t.includes(teeTime.toLowerCase()) &&
+                    isConfirmationOverlay(b)
+                );
+            });
 
             if (c) {
-                // --- WRITE LOG SAFELY ---
                 logBookingTime();
 
-                // --- SAFARI-SAFE CONFIRMATION CLICK ---
+                // Safari/Edge-safe confirmation click
                 requestAnimationFrame(() => {
                     setTimeout(() => c.click(), 200);
                 });
@@ -221,7 +227,7 @@
         poll();
     }
 
-    // --- Logging ---
+    // --- Logging with auto-trim (last 50 entries) ---
     function logBookingTime() {
         const now = new Date();
         let elapsedMs;
@@ -244,7 +250,14 @@
             Math.floor(elapsedMs).toString().padStart(3, '0')
         ].join(',');
 
-        const logs = JSON.parse(localStorage.getItem('bookingTimes') || '[]');
+        let logs = [];
+        try {
+            logs = JSON.parse(localStorage.getItem('bookingTimes') || '[]');
+        } catch (e) {
+            logs = [];
+        }
+        // Keep only last 49 entries, then add new one (total 50)
+        if (logs.length >= 50) logs = logs.slice(logs.length - 49);
         logs.push(entry);
         localStorage.setItem('bookingTimes', JSON.stringify(logs));
     }

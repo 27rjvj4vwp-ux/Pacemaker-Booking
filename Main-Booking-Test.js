@@ -1,4 +1,4 @@
-// Version 2.5.7 — Overlay-specific confirmation detection, auto-trim log, Safari-safe logging
+// Version 2.6 — Overlay-specific confirmation detection, auto-trim log, mode flag, Safari-safe logging
 (function () {
 
     // --- Configuration ---
@@ -10,7 +10,7 @@
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.5.7 : Pacemakers use only.\n" +
+        "Booking tool V2.6 : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
     if (!teeTimeRaw) { alert("No tee time entered."); return; }
@@ -227,10 +227,11 @@
         poll();
     }
 
-    // --- Logging with auto-trim (last 50 entries) ---
+    // --- Logging with auto-trim (last 50 entries) and mode flag ---
     function logBookingTime() {
         const now = new Date();
         let elapsedMs;
+        const mode = (dynamicBaseline !== null) ? 'IM' : 'SCH';
 
         if (dynamicBaseline !== null)
             elapsedMs = performance.now() - dynamicBaseline;
@@ -243,6 +244,7 @@
         }
 
         const entry = [
+            mode,
             now.toLocaleDateString('en-GB'),
             now.getHours().toString().padStart(2, '0'),
             now.getMinutes().toString().padStart(2, '0'),

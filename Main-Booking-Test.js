@@ -1,4 +1,4 @@
-// Version 2.6 — Overlay-specific confirmation detection, auto-trim log, explicit mode flag, Safari-safe logging
+// Version 2.5 — Overlay-specific confirmation detection, auto-trim log, explicit mode flag, Safari-safe logging, log format: mode,date,hr,min,sec,milliseconds
 (function () {
 
     // --- Configuration ---
@@ -7,11 +7,12 @@
     // --- Mode Tracking ---
     let bookingMode = 'SCH'; // Default to scheduled
     let dynamicBaseline = null;
+    let dynamicStartDate = null;
     let fixedBaseline = null;
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.6 : Pacemakers use only.\n" +
+        "Booking tool V2.5 : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
     if (!teeTimeRaw) { alert("No tee time entered."); return; }
@@ -68,7 +69,8 @@
         )) return;
 
         bookingMode = 'IM';
-        // Do NOT set dynamicBaseline here anymore!
+        dynamicBaseline = performance.now();
+        dynamicStartDate = new Date();
     }
 
     // --- Navigate Prev → Wait → Next ---
@@ -85,10 +87,6 @@
         setTimeout(() => waitForDateDisplay(targetDateText, () => {
 
             waitForBookingSlot(teeTime, bookingSystemDate, 2000, (btn) => {
-                // Set dynamic baseline for immediate mode just before booking action
-                if (bookingMode === 'IM') {
-                    dynamicBaseline = performance.now();
-                }
                 btn.click();
                 waitForConfirmationButtonPolling(teeTime, 5000);
             });
@@ -234,28 +232,40 @@
         poll();
     }
 
-    // --- Logging with auto-trim (last 50 entries) and explicit mode flag ---
+    // --- Logging with auto-trim (last 50 entries), explicit mode flag, log format: mode,date,hr,min,sec,milliseconds ---
     function logBookingTime() {
+        let logHr, logMin, logSec, delayMs;
         const now = new Date();
-        let elapsedMs;
 
         if (bookingMode === 'IM') {
-            elapsedMs = performance.now() - dynamicBaseline;
+            logHr = dynamicStartDate.getHours().toString().padStart(2, '0');
+            logMin = dynamicStartDate.getMinutes().toString().padStart(2, '0');
+            logSec = dynamicStartDate.getSeconds().toString().padStart(2, '0');
+            delayMs = Math.floor(performance.now() - dynamicBaseline);
         } else if (fixedBaseline !== null) {
+            logHr = now.getHours().toString().padStart(2, '0');
+            logMin = now.getMinutes().toString().padStart(2, '0');
+            logSec = now.getSeconds().toString().padStart(2, '0');
             const baseline = new Date(now);
             baseline.setHours(pubH, pubM, 0, 0);
-            elapsedMs = now.getTime() - baseline.getTime();
+            delayMs = Math.floor(now.getTime() - baseline.getTime());
         } else {
-            elapsedMs = performance.now();
+            logHr = now.getHours().toString().padStart(2, '0');
+            logMin = now.getMinutes().toString().padStart(2, '0');
+            logSec = now.getSeconds().toString().padStart(2, '0');
+            delayMs = Math.floor(performance.now());
         }
+
+        // Pad delay to at least three digits (milliseconds)
+        let delayStr = delayMs.toString().padStart(3, '0');
 
         const entry = [
             bookingMode,
             now.toLocaleDateString('en-GB'),
-            now.getHours().toString().padStart(2, '0'),
-            now.getMinutes().toString().padStart(2, '0'),
-            now.getSeconds().toString().padStart(2, '0') + "." +
-            Math.floor(elapsedMs).toString().padStart(3, '0')
+            logHr,
+            logMin,
+            logSec,
+            delayStr
         ].join(',');
 
         let logs = [];
@@ -264,7 +274,6 @@
         } catch (e) {
             logs = [];
         }
-        // Keep only last 49 entries, then add new one (total 50)
         if (logs.length >= 50) logs = logs.slice(logs.length - 49);
         logs.push(entry);
         localStorage.setItem('bookingTimes', JSON.stringify(logs));

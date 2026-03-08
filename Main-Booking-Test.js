@@ -64,8 +64,6 @@
             `${newpubtime} has passed.\n` +
             `Book immediately?`
         )) return;
-
-        dynamicBaseline = performance.now();
     }
 
     // --- Navigate Prev → Wait → Next ---
@@ -82,6 +80,10 @@
         setTimeout(() => waitForDateDisplay(targetDateText, () => {
 
             waitForBookingSlot(teeTime, bookingSystemDate, 2000, (btn) => {
+                if (dynamicBaseline !== null) {
+                    // Set the dynamic baseline right before booking action starts
+                     dynamicBaseline = performance.now();
+                }
                 btn.click();
                 waitForConfirmationButtonPolling(teeTime, 5000);
             });

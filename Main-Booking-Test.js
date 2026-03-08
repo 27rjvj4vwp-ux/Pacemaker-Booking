@@ -1,10 +1,11 @@
-// Version 2.6 — Overlay-specific confirmation detection, auto-trim log, mode flag, Safari-safe logging
+// Version 2.6 — Overlay-specific confirmation detection, auto-trim log, explicit mode flag, Safari-safe logging
 (function () {
 
     // --- Configuration ---
     const newpubtime = "07:45"; // "07:15" in summer
 
-    // --- Timing Baseline ---
+    // --- Mode Tracking ---
+    let bookingMode = 'SCH'; // Default to scheduled
     let dynamicBaseline = null;
     let fixedBaseline = null;
 
@@ -48,6 +49,7 @@
 
     if (publishInFuture) {
         // Scheduled mode
+        bookingMode = 'SCH';
         if (!confirm(
             `${teeTime} on ${targetDateText} selected.\n` +
             `Process will wait until ${newpubtime} UK time.\n` +
@@ -64,6 +66,9 @@
             `${newpubtime} has passed.\n` +
             `Book immediately?`
         )) return;
+
+        bookingMode = 'IM';
+        // Do NOT set dynamicBaseline here anymore!
     }
 
     // --- Navigate Prev → Wait → Next ---
@@ -80,9 +85,9 @@
         setTimeout(() => waitForDateDisplay(targetDateText, () => {
 
             waitForBookingSlot(teeTime, bookingSystemDate, 2000, (btn) => {
-                if (dynamicBaseline !== null) {
-                    // Set the dynamic baseline right before booking action starts
-                     dynamicBaseline = performance.now();
+                // Set dynamic baseline for immediate mode just before booking action
+                if (bookingMode === 'IM') {
+                    dynamicBaseline = performance.now();
                 }
                 btn.click();
                 waitForConfirmationButtonPolling(teeTime, 5000);
@@ -229,15 +234,14 @@
         poll();
     }
 
-    // --- Logging with auto-trim (last 50 entries) and mode flag ---
+    // --- Logging with auto-trim (last 50 entries) and explicit mode flag ---
     function logBookingTime() {
         const now = new Date();
         let elapsedMs;
-        const mode = (dynamicBaseline !== null) ? 'IM' : 'SCH';
 
-        if (dynamicBaseline !== null)
+        if (bookingMode === 'IM') {
             elapsedMs = performance.now() - dynamicBaseline;
-        else if (fixedBaseline !== null) {
+        } else if (fixedBaseline !== null) {
             const baseline = new Date(now);
             baseline.setHours(pubH, pubM, 0, 0);
             elapsedMs = now.getTime() - baseline.getTime();
@@ -246,7 +250,7 @@
         }
 
         const entry = [
-            mode,
+            bookingMode,
             now.toLocaleDateString('en-GB'),
             now.getHours().toString().padStart(2, '0'),
             now.getMinutes().toString().padStart(2, '0'),

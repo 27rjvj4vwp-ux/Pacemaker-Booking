@@ -1,318 +1,283 @@
-// Version 2.3 (Adds after-publish confirmation + robust timing + DOM stabilisation)
+// Version 2.6.1 — Overlay-specific confirmation detection, auto-trim log, explicit mode flag, Safari-safe logging, log format: mode,date,hr,min,sec,milliseconds
+// SUMMER BOOKING
 (function () {
 
-    // --------------------------------------------------------------------
-    // CONFIGURATION
-    // --------------------------------------------------------------------
-    // The publish time for new booking sheets (07:45 in winter / 07:15 in summer).
-    // Only change this ONE line for seasonal adjustments.
-    const newpubtime = "07:45";
+    // --- Configuration ---
+    const newpubtime = "07:15"; // "07:45" in winter
 
-    // Optional dynamic input form (disabled for production):
-    // const newpubtime = (prompt("Enter publish time (HH:MM) or leave blank for default:") || defaultPubTime).trim();
+    // --- Mode Tracking ---
+    let bookingMode = 'SCH'; // Default to scheduled
+    let dynamicBaseline = null;
+    let dynamicStartDate = null;
+    let fixedBaseline = null;
 
-    // --------------------------------------------------------------------
-    // STEP 1: Ask user for their desired tee time
-    // --------------------------------------------------------------------
-    const teeTime = prompt(
-        "Booking tool V2.3 : Pacemakers use only.\nEnter your target tee time (e.g., 09:10):"
+    // --- User Input ---
+    let teeTimeRaw = prompt(
+        "Booking tool V2.6.1 : Pacemakers use only.\n" +
+        "Enter your target tee time (e.g., 09:10):"
     );
-    if (!teeTime) { alert("No tee time entered."); return; }
+    if (!teeTimeRaw) { alert("No tee time entered."); return; }
 
-    // --------------------------------------------------------------------
-    // STEP 2: Extract the target booking date from the site’s displayed header
-    // --------------------------------------------------------------------
+    const match = teeTimeRaw.match(/\b\d{1,2}:\d{2}\b/);
+    if (!match) { alert("Invalid tee time entered."); return; }
+    const teeTime = match[0];
+
+    // --- Target Date ---
     const dateBlock = document.querySelector('span.date-display');
     const targetDateText = dateBlock ? dateBlock.textContent.trim() : '';
-    if (!targetDateText) { alert('Target date not found on page.'); return; }
+    if (!targetDateText) { alert("Target date not found on this page."); return; }
 
-    // Converts site’s display text (e.g. "Friday 2 February 2026")
-    // into booking-format "02-02-2026"
     function getBookingSystemDate(str) {
         let parts = str.replace(',', '').split(' ');
         let day = parts[1].replace(/\D/g, '').padStart(2, '0');
         let monthName = parts[2];
-        let year = parts[3] || (new Date().getFullYear().toString());
-
+        let year = parts[3] || (new Date().getFullYear());
         const monthMap = {
-            'January': '01', 'February': '02', 'March': '03', 'April': '04',
-            'May': '05', 'June': '06', 'July': '07', 'August': '08',
-            'September': '09', 'October': '10', 'November': '11', 'December': '12'
+            January: '01', February: '02', March: '03', April: '04',
+            May: '05', June: '06', July: '07', August: '08',
+            September: '09', October: '10', November: '11', December: '12'
         };
-        let month = monthMap[monthName];
-
-        return `${day}-${month}-${year}`;
+        return `${day}-${monthMap[monthName]}-${year}`;
     }
 
     const bookingSystemDate = getBookingSystemDate(targetDateText);
 
-    // --------------------------------------------------------------------
-    // STEP 3: Determine whether publish time is still ahead or already passed
-    // --------------------------------------------------------------------
+    // --- Determine Mode ---
     const now = new Date();
     const [pubH, pubM] = newpubtime.split(':').map(Number);
-
     const targetPub = new Date();
     targetPub.setHours(pubH, pubM, 0, 0);
+    const publishInFuture = targetPub.getTime() - now.getTime() > 0;
 
-    const publishInFuture = (targetPub.getTime() - now.getTime()) > 0;
-
-    // --------------------------------------------------------------------
-    // STEP 4: Show appropriate user confirmation message
-    // --------------------------------------------------------------------
     if (publishInFuture) {
-
-        // Normal case: Before publish time → script will wait
-        const message =
+        // Scheduled mode
+        bookingMode = 'SCH';
+        if (!confirm(
             `${teeTime} on ${targetDateText} selected.\n` +
-            `Process will wait until ${newpubtime} UK time to book.\n` +
-            `Do not press Reset. Press OK to continue.`;
+            `Process will wait until ${newpubtime} UK time.\n` +
+            `Do not press Reset.`
+        )) return;
 
-        if (!confirm(message)) {
-            alert('Booking cancelled.');
-            return;
-        }
+        fixedBaseline = new Date();
+        fixedBaseline.setHours(pubH, pubM, 0, 0);
 
     } else {
-
-        // After publish time: Ask user for confirmation before immediate booking
-        const message =
+        // Immediate mode
+        if (!confirm(
             `${teeTime} on ${targetDateText} selected.\n` +
-            `${newpubtime} UK time has already passed.\n` +
-            `Do you want to book immediately?`;
+            `${newpubtime} has passed.\n` +
+            `Book immediately?`
+        )) return;
 
-        if (!confirm(message)) {
-            alert('Booking cancelled.');
-            return;
-        }
-
-        // If user confirms → skip waiting and proceed immediately
+        bookingMode = 'IM';
+        dynamicBaseline = performance.now();
+        dynamicStartDate = new Date();
     }
 
-    // --------------------------------------------------------------------
-    // STEP 5: Move one day back, wait until publish time, then move forward
-    // --------------------------------------------------------------------
+    // --- Navigate Prev → Wait → Next ---
     const prevArrow = document.querySelector('a[data-direction="prev"]');
-    if (prevArrow) {
-        prevArrow.click();
+    if (!prevArrow) { alert("Previous day arrow not found!"); return; }
+    prevArrow.click();
 
-        // Allow page to update after clicking "previous"
-        setTimeout(() => {
+    setTimeout(() => waitUntilUKTime(newpubtime, () => {
 
-            // Wait until exact publish moment (unless already passed)
-            waitUntilUKTime(newpubtime, function () {
+        const nextArrow = document.querySelector('a[data-direction="next"]');
+        if (!nextArrow) { alert("Next day arrow not found!"); return; }
+        nextArrow.click();
 
-                const nextArrow = document.querySelector('a[data-direction="next"]');
-                if (nextArrow) {
+        setTimeout(() => waitForDateDisplay(targetDateText, () => {
 
-                    nextArrow.click();
-
-                    // Small buffer before inspecting DOM
-                    setTimeout(() => {
-
-                        // Confirm the correct date is displayed
-                        waitForDateDisplay(targetDateText, function () {
-
-                            // Poll for the desired tee time row
-                            waitForBookingSlot(
-                                teeTime,
-                                bookingSystemDate,
-                                15000,
-                                function (btn) {
-                                    btn.click();
-                                    waitForConfirmationButton(5000);
-                                }
-                            );
-                        });
-
-                    }, 150); // Stabilisation time after clicking next
-
-                } else {
-                    alert('Next day arrow not found!');
-                    return;
-                }
+            waitForBookingSlot(teeTime, bookingSystemDate, 2000, (btn) => {
+                btn.click();
+                waitForConfirmationButtonPolling(teeTime, 5000);
             });
 
-        }, 150); // Stabilisation time after clicking previous
+        }), 150);
 
-    } else {
-        alert('Previous day arrow not found!');
-        return;
-    }
+    }), 150);
 
-    // ====================================================================
-    //  SUPPORT FUNCTIONS
-    // ====================================================================
+    // --- SUPPORT FUNCTIONS ---
 
-    // --------------------------------------------------------------------
-    // Accurate, stall-resistant timing system
-    // --------------------------------------------------------------------
     function waitUntilUKTime(timeStr, cb) {
-
-        // Convert "HH:MM" to a Date object for today
         const [h, m] = timeStr.split(':').map(Number);
         const target = new Date();
         target.setHours(h, m, 0, 0);
 
-        const earlyMs = 3000; // Wake 3 seconds early
+        const early = 3000;
 
         function scheduler() {
-            const now = Date.now();
-            const targetMs = target.getTime();
-            const diff = targetMs - now;
-
-            // Enter tight loop when within 3 seconds of target
-            if (diff <= earlyMs) {
-                const tightLoop = () => {
-                    if (Date.now() >= targetMs) cb();
-                    else setTimeout(tightLoop, 5);
+            const diff = target.getTime() - Date.now();
+            if (diff <= early) {
+                const loop = () => {
+                    if (Date.now() >= target.getTime()) cb();
+                    else setTimeout(loop, 5);
                 };
-                return tightLoop();
+                return loop();
             }
-
-            // Sleep only small intervals to survive Safari/iOS throttling
-            const sleep = Math.min(2000, diff - earlyMs);
-            setTimeout(scheduler, sleep);
+            setTimeout(scheduler, Math.min(2000, diff - early));
         }
 
-        scheduler();
+        if (dynamicBaseline !== null) cb();
+        else scheduler();
     }
 
-    // --------------------------------------------------------------------
-    // Wait for the correct date to appear in "date-display"
-    // --------------------------------------------------------------------
     function waitForDateDisplay(targetDateText, cb) {
-
-        const dateBlock = document.querySelector('span.date-display');
-        if (!dateBlock) { alert('Date block not found!'); return; }
+        const block = document.querySelector('span.date-display');
+        if (!block) return alert("Date missing!");
 
         const start = Date.now();
+        let clicks = 0;
 
-        // Small delay before beginning polling
         setTimeout(function poll() {
-            const newText = dateBlock.textContent.trim();
+            if (block.textContent.trim().toLowerCase() === targetDateText.toLowerCase())
+                return setTimeout(cb, 100);
 
-            // Date now matches what user selected
-            if (newText.toLowerCase() === targetDateText.toLowerCase()) {
-                setTimeout(cb, 100);
-                return;
+            if (Date.now() - start < 15000)
+                return setTimeout(poll, 20);
+
+            const next = document.querySelector('a[data-direction="next"]');
+            if (next && clicks < 3) {
+                clicks++;
+                next.click();
+                return setTimeout(poll, 500);
             }
 
-            // Retry until timeout
-            if (Date.now() - start < 15000) {
-                setTimeout(poll, 20);
-            } else {
-
-                // Safety fallback: click next again to re-trigger the sheet load
-                const nextArrow = document.querySelector('a[data-direction="next"]');
-                if (nextArrow) {
-                    nextArrow.click();
-                    setTimeout(poll, 500);
-                } else {
-                    alert('Next day arrow not found for retry!');
-                }
-            }
-
+            alert("Failed to find date after several attempts.");
         }, 150);
     }
 
-    // --------------------------------------------------------------------
-    // Poll for the booking table and target time row
-    // --------------------------------------------------------------------
     function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
-
         const start = Date.now();
-
         function check() {
-
             const table = document.querySelector('#member_teetimes');
-
-            // Table not yet created or loaded
             if (!table) {
                 if (Date.now() - start < timeoutMs) return setTimeout(check, 50);
-                return alert('Booking table not found!');
+                return alert("Booking table not found!");
             }
 
-            const rows = Array.from(table.querySelectorAll('tr'));
-
-            // Table exists but rows haven’t been inserted yet
-            if (rows.length === 0) {
-                if (Date.now() - start < timeoutMs) return setTimeout(check, 50);
-                return alert('Booking rows did not load in time.');
-            }
-
-            // Search all rows for the target time + correct date
-            for (const row of rows) {
-                const timeCell = row.querySelector('th.slot-time');
-
-                if (timeCell && timeCell.textContent.trim() === targetTime) {
-
-                    const hiddenDateInput = row.querySelector('input[name="date"]');
-
-                    if (hiddenDateInput && hiddenDateInput.value === bookingSystemDate) {
-
-                        // Find "Book" button for this row
-                        let bookBtn = row.querySelector('a.button.inlineBooking.btn-success');
-
-                        // Fallback for alternate button types
-                        if (!bookBtn) {
-                            bookBtn = Array.from(row.querySelectorAll('button'))
-                                .find(btn => /book/i.test(btn.textContent.trim()));
-                        }
-
-                        if (bookBtn) return cb(bookBtn, row);
+            for (const row of table.querySelectorAll('tr')) {
+                const tCell = row.querySelector('th.slot-time');
+                if (tCell && tCell.textContent.trim() === targetTime) {
+                    const dateInput = row.querySelector('input[name="date"]');
+                    if (dateInput && dateInput.value === bookingSystemDate) {
+                        const btn = Array.from(row.querySelectorAll('a, button')).find(b =>
+                            b.className &&
+                            b.className.includes('inlineBooking') &&
+                            b.className.includes('btn-success') &&
+                            b.textContent.trim().toLowerCase() === 'book'
+                        );
+                        return btn ? cb(btn) : alert("Selected tee time not available.");
                     }
                 }
             }
 
-            // Retry until timeout
             if (Date.now() - start < timeoutMs) return setTimeout(check, 30);
-
-            alert('Book button not found for ' + targetTime + ' on correct date');
+            alert("Book button not found for " + targetTime);
         }
-
         check();
     }
 
-    // --------------------------------------------------------------------
-    // After clicking "Book", wait for the confirmation button to appear
-    // --------------------------------------------------------------------
-    function waitForConfirmationButton(timeoutMs) {
-
+    // --- Overlay-specific Confirmation Button Detection ---
+    function waitForConfirmationButtonPolling(teeTime, timeoutMs) {
         const start = Date.now();
 
-        function check() {
-
-            const confirmBtns = Array.from(document.querySelectorAll('button, a'));
-
-            // Confirmation button text includes "Book teetime at HH:MM"
-            const confirmBtn = confirmBtns.find(btn =>
-                btn.textContent.includes('Book teetime at ' + teeTime)
-            );
-
-            if (confirmBtn) {
-
-                confirmBtn.click();
-
-                // Log timing info for diagnostics
-                const nowPerf = performance.now();
-                const nowISO = new Date().toISOString();
-                const logs = JSON.parse(localStorage.getItem('bookingTimes') || '[]');
-
-                logs.push({ iso: nowISO, perf: nowPerf });
-                localStorage.setItem('bookingTimes', JSON.stringify(logs));
-
-            } else if (Date.now() - start < timeoutMs) {
-
-                // Retry
-                setTimeout(check, 20);
-
-            } else {
-                alert('Confirmation button not found for ' + teeTime);
+        function isConfirmationOverlay(el) {
+            // Overlay is floating, not inside tee sheet
+            if (!el) return false;
+            let node = el.parentElement;
+            let depth = 0;
+            while (node && depth < 5) {
+                const style = window.getComputedStyle(node);
+                if (
+                    (style.position === "absolute" || style.position === "fixed") &&
+                    parseInt(style.zIndex, 10) > 100
+                ) return true;
+                node = node.parentElement;
+                depth++;
             }
+            return false;
         }
 
-        check();
+        function poll() {
+            // Find all visible buttons/links
+            const btns = Array.from(document.querySelectorAll("button, a, input[type=submit]"))
+                .filter(b => b.offsetParent !== null);
+
+            // Strict text match: "Book teetime at" + teeTime
+            let c = btns.find(b => {
+                const t = (b.innerText || b.value || "").toLowerCase();
+                return (
+                    t.startsWith("book teetime at") &&
+                    t.includes(teeTime.toLowerCase()) &&
+                    isConfirmationOverlay(b)
+                );
+            });
+
+            if (c) {
+                logBookingTime();
+
+                // Safari/Edge-safe confirmation click
+                requestAnimationFrame(() => {
+                    setTimeout(() => c.click(), 200);
+                });
+
+                return;
+            }
+
+            if (Date.now() - start < timeoutMs)
+                return setTimeout(poll, 30);
+
+            alert("Confirmation button not found for " + teeTime);
+        }
+
+        poll();
+    }
+
+    // --- Logging with auto-trim (last 50 entries), explicit mode flag, log format: mode,date,hr,min,sec,milliseconds ---
+    function logBookingTime() {
+        let logHr, logMin, logSec, delayMs;
+        const now = new Date();
+
+        if (bookingMode === 'IM') {
+            logHr = dynamicStartDate.getHours().toString().padStart(2, '0');
+            logMin = dynamicStartDate.getMinutes().toString().padStart(2, '0');
+            logSec = dynamicStartDate.getSeconds().toString().padStart(2, '0');
+            delayMs = Math.floor(performance.now() - dynamicBaseline);
+        } else if (fixedBaseline !== null) {
+            logHr = now.getHours().toString().padStart(2, '0');
+            logMin = now.getMinutes().toString().padStart(2, '0');
+            logSec = now.getSeconds().toString().padStart(2, '0');
+            const baseline = new Date(now);
+            baseline.setHours(pubH, pubM, 0, 0);
+            delayMs = Math.floor(now.getTime() - baseline.getTime());
+        } else {
+            logHr = now.getHours().toString().padStart(2, '0');
+            logMin = now.getMinutes().toString().padStart(2, '0');
+            logSec = now.getSeconds().toString().padStart(2, '0');
+            delayMs = Math.floor(performance.now());
+        }
+
+        // Pad delay to at least three digits (milliseconds)
+        let delayStr = delayMs.toString().padStart(3, '0');
+
+        const entry = [
+            bookingMode,
+            now.toLocaleDateString('en-GB'),
+            logHr,
+            logMin,
+            logSec,
+            delayStr
+        ].join(',');
+
+        let logs = [];
+        try {
+            logs = JSON.parse(localStorage.getItem('bookingTimes') || '[]');
+        } catch (e) {
+            logs = [];
+        }
+        if (logs.length >= 50) logs = logs.slice(logs.length - 49);
+        logs.push(entry);
+        localStorage.setItem('bookingTimes', JSON.stringify(logs));
     }
 
 })();

@@ -1,4 +1,5 @@
-// Version 2.6.1 — Overlay-specific confirmation detection, auto-trim log, explicit mode flag, Safari-safe logging, log format: mode,date,hr,min,sec,milliseconds
+// Version 2.6.2 — Overlay-specific confirmation detection, auto-trim log, explicit mode flag, Safari-safe logging, log format: mode,date,hr,min,sec,milliseconds
+// 26 July 2026  waitforbookingslot timeout increased to 5000 to resolve Tony's error messages
 // SUMMER BOOKING
 (function () {
 
@@ -87,7 +88,7 @@
 
         setTimeout(() => waitForDateDisplay(targetDateText, () => {
 
-            waitForBookingSlot(teeTime, bookingSystemDate, 2000, (btn) => {
+            waitForBookingSlot(teeTime, bookingSystemDate, 5000, (btn) => {
                 btn.click();
                 waitForConfirmationButtonPolling(teeTime, 5000);
             });

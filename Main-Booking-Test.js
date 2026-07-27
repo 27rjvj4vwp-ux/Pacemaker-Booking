@@ -1,8 +1,10 @@
-// Version 2.6 — Overlay-specific confirmation detection, auto-trim log, explicit mode flag, Safari-safe logging, log format: mode,date,hr,min,sec,milliseconds
+// Version 2.6.2(Test) — Overlay-specific confirmation detection, auto-trim log, explicit mode flag, Safari-safe logging, log format: mode,date,hr,min,sec,milliseconds
+// 26 July 2026  waitforbookingslot timeout increased to 5000 to resolve Tony's error messages
+// SUMMER BOOKING
 (function () {
 
     // --- Configuration ---
-    const newpubtime = "07:45"; // "07:15" in summer
+    const newpubtime = "07:15"; // "07:45" in winter
 
     // --- Mode Tracking ---
     let bookingMode = 'SCH'; // Default to scheduled
@@ -12,7 +14,7 @@
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.6 : Pacemakers use only.\n" +
+        "Booking tool V2.6.2 (test) : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
     if (!teeTimeRaw) { alert("No tee time entered."); return; }
@@ -86,7 +88,7 @@
 
         setTimeout(() => waitForDateDisplay(targetDateText, () => {
 
-            waitForBookingSlot(teeTime, bookingSystemDate, 2000, (btn) => {
+            waitForBookingSlot(teeTime, bookingSystemDate, 5000, (btn) => {
                 btn.click();
                 waitForConfirmationButtonPolling(teeTime, 5000);
             });
@@ -145,37 +147,146 @@
         }, 150);
     }
 
-    function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
-        const start = Date.now();
-        function check() {
-            const table = document.querySelector('#member_teetimes');
-            if (!table) {
-                if (Date.now() - start < timeoutMs) return setTimeout(check, 50);
-                return alert("Booking table not found!");
-            }
+   function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
 
-            for (const row of table.querySelectorAll('tr')) {
-                const tCell = row.querySelector('th.slot-time');
-                if (tCell && tCell.textContent.trim() === targetTime) {
+    const start = Date.now();
+
+    function check() {
+
+        const table = document.querySelector('#member_teetimes');
+
+        if (!table) {
+
+            if (Date.now() - start < timeoutMs)
+                return setTimeout(check, 50);
+
+            return alert("Booking table not found!");
+
+        }
+
+        let foundTime = false;
+        let foundDate = false;
+        let foundButton = false;
+
+        let actualDateValue = "NOT FOUND";
+
+        let buttonInfo = [];
+
+        let visibleTimes = [];
+
+        for (const row of table.querySelectorAll('tr')) {
+
+            const tCell = row.querySelector('th.slot-time');
+
+            if (tCell) {
+
+                const rowTime = tCell.textContent.trim();
+
+                visibleTimes.push(rowTime);
+
+                if (rowTime === targetTime) {
+
+                    foundTime = true;
+
                     const dateInput = row.querySelector('input[name="date"]');
-                    if (dateInput && dateInput.value === bookingSystemDate) {
-                        const btn = Array.from(row.querySelectorAll('a, button')).find(b =>
+
+                    actualDateValue = dateInput
+                        ? dateInput.value
+                        : "MISSING";
+
+                    if (
+                        dateInput &&
+                        dateInput.value === bookingSystemDate
+                    ) {
+
+                        foundDate = true;
+
+                        const candidates =
+                            Array.from(
+                                row.querySelectorAll('a, button')
+                            );
+
+                        buttonInfo = candidates.map(b => ({
+                            text: b.textContent.trim(),
+                            classes: b.className || "(none)"
+                        }));
+
+                        const btn = candidates.find(b =>
+
                             b.className &&
                             b.className.includes('inlineBooking') &&
                             b.className.includes('btn-success') &&
                             b.textContent.trim().toLowerCase() === 'book'
+
                         );
-                        return btn ? cb(btn) : alert("Selected tee time not available.");
+
+                        if (btn) {
+
+                            foundButton = true;
+
+                            return cb(btn);
+
+                        }
                     }
                 }
             }
-
-            if (Date.now() - start < timeoutMs) return setTimeout(check, 30);
-            alert("Book button not found for " + targetTime);
         }
-        check();
+
+        if (Date.now() - start < timeoutMs)
+            return setTimeout(check, 30);
+
+        let msg =
+            "BOOKING DIAGNOSTICS\n\n" +
+            "Target Time: " + targetTime + "\n" +
+            "Expected Date: " + bookingSystemDate + "\n\n";
+
+        if (!foundTime) {
+
+            msg +=
+                "FAILURE: Target time row not found.\n\n" +
+                "Visible Times:\n" +
+                visibleTimes.join(", ");
+
+        } else if (!foundDate) {
+
+            msg +=
+                "FAILURE: Time row found but date mismatch.\n\n" +
+                "Expected: " + bookingSystemDate + "\n" +
+                "Found: " + actualDateValue;
+
+        } else if (!foundButton) {
+
+            msg +=
+                "FAILURE: Time and date matched.\n" +
+                "Book button was not found.\n\n" +
+                "Buttons in row:\n";
+
+            if (buttonInfo.length) {
+
+                buttonInfo.forEach(btn => {
+
+                    msg +=
+                        "Text: " + btn.text +
+                        "\nClass: " + btn.classes +
+                        "\n\n";
+
+                });
+
+            } else {
+
+                msg += "No buttons found in row.";
+
+            }
+
+        }
+
+        alert(msg);
+
     }
 
+    check();
+
+}
     // --- Overlay-specific Confirmation Button Detection ---
     function waitForConfirmationButtonPolling(teeTime, timeoutMs) {
         const start = Date.now();

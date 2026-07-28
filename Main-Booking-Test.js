@@ -1,5 +1,4 @@
-// Version 2.6.2(Test) — Overlay-specific confirmation detection, auto-trim log, explicit mode flag, Safari-safe logging, log format: mode,date,hr,min,sec,milliseconds
-// 26 July 2026  waitforbookingslot timeout increased to 5000 to resolve Tony's error messages
+// Version 2.6.3(Test) — Overlay-specific confirmation detection, auto-trim log, explicit mode flag, Safari-safe logging, log format: mode,date,hr,min,sec,milliseconds
 // SUMMER BOOKING
 (function () {
 
@@ -14,7 +13,7 @@
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.6.2 (test) : Pacemakers use only.\n" +
+        "Booking tool V2.6.3 (test) : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
     if (!teeTimeRaw) { alert("No tee time entered."); return; }
@@ -147,7 +146,7 @@
         }, 150);
     }
 
-   function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
+function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
 
     const start = Date.now();
 
@@ -171,6 +170,9 @@
         let actualDateValue = "NOT FOUND";
 
         let buttonInfo = [];
+        let inputInfo = [];
+
+        let rowHtmlSnippet = "";
 
         let visibleTimes = [];
 
@@ -188,7 +190,20 @@
 
                     foundTime = true;
 
-                    const dateInput = row.querySelector('input[name="date"]');
+                    const allInputs =
+                        Array.from(row.querySelectorAll('input'));
+
+                    inputInfo = allInputs.map(i =>
+                        (i.name || "(noname)") +
+                        "=" +
+                        (i.value || "(blank)")
+                    );
+
+                    rowHtmlSnippet =
+                        row.outerHTML.substring(0, 500);
+
+                    const dateInput =
+                        row.querySelector('input[name="date"]');
 
                     actualDateValue = dateInput
                         ? dateInput.value
@@ -252,14 +267,17 @@
             msg +=
                 "FAILURE: Time row found but date mismatch.\n\n" +
                 "Expected: " + bookingSystemDate + "\n" +
-                "Found: " + actualDateValue;
+                "Found: " + actualDateValue +
+                "\n\nInputs found:\n" +
+                (inputInfo.length
+                    ? inputInfo.join("\n")
+                    : "NONE");
 
         } else if (!foundButton) {
 
             msg +=
                 "FAILURE: Time and date matched.\n" +
-                "Book button was not found.\n\n" +
-                "Buttons in row:\n";
+                "Book button not found.\n\n";
 
             if (buttonInfo.length) {
 
@@ -274,7 +292,7 @@
 
             } else {
 
-                msg += "No buttons found in row.";
+                msg += "No buttons found.";
 
             }
 
@@ -286,7 +304,7 @@
 
     check();
 
-}
+}   
     // --- Overlay-specific Confirmation Button Detection ---
     function waitForConfirmationButtonPolling(teeTime, timeoutMs) {
         const start = Date.now();

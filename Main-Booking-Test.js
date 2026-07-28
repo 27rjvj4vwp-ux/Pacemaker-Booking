@@ -87,7 +87,7 @@
 
         setTimeout(() => waitForDateDisplay(targetDateText, () => {
 
-            waitForBookingSlot(teeTime, bookingSystemDate, 5000, (btn) => {
+            waitForBookingSlot(teeTime, bookingSystemDate, 15000, (btn) => {
                 btn.click();
                 waitForConfirmationButtonPolling(teeTime, 5000);
             });

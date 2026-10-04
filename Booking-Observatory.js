@@ -1,5 +1,16 @@
 (function () {
 
-    alert("Booking Observatory V0.1 TEST loaded");
+    alert("Stage 1");
+
+    const dateBlock =
+        document.querySelector(
+            'span.date-display'
+        );
+
+    alert(
+        dateBlock
+            ? "Date found"
+            : "Date NOT found"
+    );
 
 })();

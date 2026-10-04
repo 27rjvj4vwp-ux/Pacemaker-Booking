@@ -1,23 +1,39 @@
-// Booking Observatory V0.1a
+// Booking Observatory V0.2
+// Date synchronisation test only
 
 (function () {
 
-    alert("Stage 1 - Script Loaded");
+    const VERSION = "0.2";
+
+    const TEST_MODE = true;
+    const TEST_DELAY_SECONDS = 20;
+
+    alert(
+        "Booking Observatory V" +
+        VERSION +
+        "\n\nStage 1 - Script Loaded"
+    );
 
     const dateBlock =
-        document.querySelector('span.date-display');
+        document.querySelector(
+            'span.date-display'
+        );
 
     if (!dateBlock) {
 
-        alert("Stage 2 FAILED - Date block not found");
+        alert(
+            "FAILED\n\nDate block not found."
+        );
 
         return;
-
     }
 
+    const targetDate =
+        dateBlock.textContent.trim();
+
     alert(
-        "Stage 2 - Date found:\n\n" +
-        dateBlock.textContent.trim()
+        "Stage 2\n\nTarget Date:\n" +
+        targetDate
     );
 
     const prev =
@@ -28,61 +44,128 @@
     if (!prev) {
 
         alert(
-            "Stage 3 FAILED - Previous day arrow not found"
+            "FAILED\n\nPrevious day arrow not found."
         );
 
         return;
+    }
 
+    const next =
+        document.querySelector(
+            'a[data-direction="next"]'
+        );
+
+    if (!next) {
+
+        alert(
+            "FAILED\n\nNext day arrow not found."
+        );
+
+        return;
     }
 
     alert(
-        "Stage 3 - Previous day arrow found"
+        "Stage 3\n\nMoving to previous day."
     );
 
     prev.click();
 
-    alert(
-        "Stage 4 - Previous day clicked"
-    );
-
-    setTimeout(function () {
-
-        const next =
-            document.querySelector(
-                'a[data-direction="next"]'
-            );
-
-        if (!next) {
-
-            alert(
-                "Stage 5 FAILED - Next day arrow not found"
-            );
-
-            return;
-
-        }
+    function beginReturn() {
 
         alert(
-            "Stage 5 - Next day found"
+            "Stage 4\n\nReturning to target day."
         );
+
+        const start =
+            performance.now();
 
         next.click();
 
-        alert(
-            "Stage 6 - Returned to target day"
-        );
+        let polls = 0;
 
-        const table =
-            document.querySelector(
-                "#member_teetimes"
+        function checkDate() {
+
+            polls++;
+
+            const block =
+                document.querySelector(
+                    'span.date-display'
+                );
+
+            const currentDate =
+                block
+                    ? block.textContent.trim()
+                    : "(missing)";
+
+            if (
+                currentDate === targetDate
+            ) {
+
+                const elapsed =
+                    Math.round(
+                        performance.now() -
+                        start
+                    );
+
+                alert(
+
+                    "SUCCESS\n\n" +
+
+                    "Target date restored.\n\n" +
+
+                    "Date:\n" +
+                    currentDate +
+
+                    "\n\nPolls:\n" +
+                    polls +
+
+                    "\n\nElapsed:\n" +
+                    elapsed +
+                    " ms"
+
+                );
+
+                return;
+            }
+
+            if (polls % 25 === 0) {
+
+                console.log(
+                    "Waiting for target date...",
+                    currentDate
+                );
+            }
+
+            setTimeout(
+                checkDate,
+                20
             );
+        }
+
+        checkDate();
+    }
+
+    if (TEST_MODE) {
 
         alert(
-            table
-                ? "Stage 7 - Booking table found"
-                : "Stage 7 - Booking table NOT found"
+            "Stage 4\n\nTEST MODE\n\n" +
+            "Waiting " +
+            TEST_DELAY_SECONDS +
+            " seconds."
         );
 
-    }, 3000);
+        setTimeout(
+            beginReturn,
+            TEST_DELAY_SECONDS *
+            1000
+        );
+
+    } else {
+
+        alert(
+            "LIVE MODE NOT IMPLEMENTED YET"
+        );
+
+    }
 
 })();

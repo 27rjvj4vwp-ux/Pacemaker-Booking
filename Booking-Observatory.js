@@ -1,9 +1,10 @@
-// Booking Observatory V1.0
-// Watches publication of selected tee times.
-// Does NOT book anything.
-// Records row structure changes after 07:15 publication.
+// Booking Observatory V1.0-alpha
+// Goodwood Booking Sheet Monitor
+// Watches the publication process without attempting to book.
 
 (function () {
+
+    const version = "1.0-alpha";
 
     const publishTime = "07:15";
 
@@ -19,10 +20,73 @@
     const pollMs = 20;
 
     const events = [];
-
     const previousState = {};
 
-    const startWallClock = new Date();
+    // -----------------------------------------------------
+    // STARTUP CONFIRMATION
+    // -----------------------------------------------------
+
+    const dateBlock =
+        document.querySelector('span.date-display');
+
+    const targetDate =
+        dateBlock
+            ? dateBlock.textContent.trim()
+            : "";
+
+    if (!targetDate) {
+
+        alert(
+            "Booking Observatory V" +
+            version +
+            "\n\nTarget date not found."
+        );
+
+        return;
+    }
+
+    const proceed = confirm(
+
+        "Booking Observatory V" +
+        version +
+        "\n\n" +
+
+        "Target Date:\n" +
+        targetDate +
+        "\n\n" +
+
+        "Monitored Tee Times:\n" +
+        targetTimes.join(", ") +
+        "\n\n" +
+
+        "Publish Time:\n" +
+        publishTime +
+        "\n\n" +
+
+        "This script:\n" +
+        "• Moves to previous day\n" +
+        "• Waits until publication\n" +
+        "• Returns to target day\n" +
+        "• Records all observable row changes\n" +
+        "• Downloads JSON results\n\n" +
+
+        "Press OK to arm observatory.\n" +
+        "Press Cancel to abort."
+
+    );
+
+    if (!proceed) {
+
+        alert(
+            "Booking Observatory cancelled."
+        );
+
+        return;
+    }
+
+    // -----------------------------------------------------
+    // LOGGING
+    // -----------------------------------------------------
 
     function logEvent(slot, event, details = "") {
 
@@ -30,7 +94,6 @@
 
         events.push({
             timestamp: now.toISOString(),
-            elapsedMs: Math.round(performance.now()),
             slot,
             event,
             details
@@ -46,9 +109,14 @@
         );
     }
 
+    // -----------------------------------------------------
+    // TIMING
+    // -----------------------------------------------------
+
     function waitUntilUKTime(timeStr, cb) {
 
-        const [h, m] = timeStr.split(':').map(Number);
+        const [h, m] =
+            timeStr.split(':').map(Number);
 
         const target = new Date();
 
@@ -58,13 +126,18 @@
 
         function scheduler() {
 
-            const diff = target.getTime() - Date.now();
+            const diff =
+                target.getTime() -
+                Date.now();
 
             if (diff <= early) {
 
                 const loop = () => {
 
-                    if (Date.now() >= target.getTime())
+                    if (
+                        Date.now() >=
+                        target.getTime()
+                    )
                         cb();
                     else
                         setTimeout(loop, 5);
@@ -72,17 +145,23 @@
                 };
 
                 return loop();
-
             }
 
             setTimeout(
                 scheduler,
-                Math.min(2000, diff - early)
+                Math.min(
+                    2000,
+                    diff - early
+                )
             );
         }
 
         scheduler();
     }
+
+    // -----------------------------------------------------
+    // STATE CAPTURE
+    // -----------------------------------------------------
 
     function getRowState(row) {
 
@@ -93,117 +172,153 @@
 
             rowExists: true,
 
-            rowText: row.innerText.trim(),
+            text:
+                row.innerText.trim(),
 
-            hasBookButton:
+            bookButton:
                 !!row.querySelector(
                     'a.inlineBooking.btn-success'
                 ),
 
-            hasTipForm:
+            tipForm:
                 !!row.querySelector(
                     '.tipForm'
                 ),
 
-            hasDateInput:
+            dateInput:
                 !!row.querySelector(
                     'input[name="date"]'
                 ),
 
-            hasCourseInput:
+            courseInput:
                 !!row.querySelector(
                     'input[name="course"]'
                 ),
 
-            hasGroupInput:
+            groupInput:
                 !!row.querySelector(
                     'input[name="group"]'
                 ),
 
-            hasBookInput:
+            bookInput:
                 !!row.querySelector(
                     'input[name="book"]'
                 ),
 
             inputCount:
-                row.querySelectorAll('input').length
+                row.querySelectorAll('input')
+                   .length
         };
     }
 
-    function stateChanged(a, b) {
+    function changed(a, b) {
 
-        return JSON.stringify(a) !== JSON.stringify(b);
-
+        return JSON.stringify(a) !==
+               JSON.stringify(b);
     }
+
+    // -----------------------------------------------------
+    // OBSERVATION
+    // -----------------------------------------------------
 
     function observeSheet() {
 
         console.log(
-            "=== OBSERVATION COMMENCED ==="
+            "=== GOODWOOD BIG BANG COMMENCED ==="
         );
 
-        const startPerf = performance.now();
+        alert(
+            "Publication detected.\n\n" +
+            "Booking Observatory is now recording.\n\n" +
+            "Do NOT refresh."
+        );
 
-        const timer = setInterval(() => {
+        const start =
+            performance.now();
 
-            const table =
-                document.querySelector(
-                    '#member_teetimes'
-                );
+        const timer =
+            setInterval(() => {
 
-            if (!table)
-                return;
-
-            for (const targetTime of targetTimes) {
-
-                const row =
-                    Array.from(
-                        table.querySelectorAll('tr')
-                    )
-                    .find(r => {
-
-                        const th =
-                            r.querySelector(
-                                'th.slot-time'
-                            );
-
-                        return th &&
-                               th.textContent.trim() === targetTime;
-
-                    });
-
-                const state =
-                    getRowState(row);
-
-                if (
-                    stateChanged(
-                        state,
-                        previousState[targetTime]
-                    )
-                ) {
-
-                    logEvent(
-                        targetTime,
-                        "STATE CHANGE",
-                        JSON.stringify(state)
+                const table =
+                    document.querySelector(
+                        "#member_teetimes"
                     );
 
-                    previousState[targetTime] = state;
+                if (!table)
+                    return;
+
+                for (
+                    const targetTime
+                    of targetTimes
+                ) {
+
+                    const row =
+                        Array.from(
+                            table.querySelectorAll(
+                                "tr"
+                            )
+                        )
+                        .find(r => {
+
+                            const th =
+                                r.querySelector(
+                                    "th.slot-time"
+                                );
+
+                            return (
+                                th &&
+                                th.textContent
+                                  .trim() ===
+                                targetTime
+                            );
+                        });
+
+                    const state =
+                        getRowState(row);
+
+                    if (
+                        changed(
+                            state,
+                            previousState[
+                                targetTime
+                            ]
+                        )
+                    ) {
+
+                        logEvent(
+                            targetTime,
+                            "STATE_CHANGE",
+                            JSON.stringify(
+                                state
+                            )
+                        );
+
+                        previousState[
+                            targetTime
+                        ] = state;
+                    }
                 }
-            }
 
-            if (
-                performance.now() - startPerf >
-                observationSeconds * 1000
-            ) {
+                if (
+                    performance.now() -
+                    start >
+                    observationSeconds *
+                    1000
+                ) {
 
-                clearInterval(timer);
+                    clearInterval(
+                        timer
+                    );
 
-                finishObservation();
-            }
+                    finishObservation();
+                }
 
-        }, pollMs);
+            }, pollMs);
     }
+
+    // -----------------------------------------------------
+    // FINISH
+    // -----------------------------------------------------
 
     function finishObservation() {
 
@@ -219,23 +334,32 @@
             json
         );
 
-        const blob = new Blob(
-            [json],
-            {
-                type: "application/json"
-            }
-        );
+        const blob =
+            new Blob(
+                [json],
+                {
+                    type:
+                    "application/json"
+                }
+            );
 
         const a =
-            document.createElement("a");
+            document.createElement(
+                "a"
+            );
 
         a.href =
-            URL.createObjectURL(blob);
+            URL.createObjectURL(
+                blob
+            );
 
         const now =
             new Date()
                 .toISOString()
-                .replace(/[:.]/g, "-");
+                .replace(
+                    /[:.]/g,
+                    "-"
+                );
 
         a.download =
             "BookingObservatory-" +
@@ -253,43 +377,19 @@
         );
 
         alert(
-            "Booking Observatory complete.\n" +
+            "Booking Observatory V" +
+            version +
+            " complete.\n\n" +
             events.length +
-            " events recorded.\n" +
-            "JSON file downloaded."
+            " events recorded.\n\n" +
+            "JSON file downloaded.\n\n" +
+            "Results also saved to localStorage."
         );
     }
 
-    // -------------------------------------------------
-    // MAIN SEQUENCE
-    // -------------------------------------------------
-
-    const dateBlock =
-        document.querySelector(
-            'span.date-display'
-        );
-
-    const targetDate =
-        dateBlock
-            ? dateBlock.textContent.trim()
-            : "";
-
-    if (!targetDate) {
-
-        alert(
-            "Target date not found."
-        );
-
-        return;
-    }
-
-    alert(
-        "Booking Observatory armed.\n\n" +
-        "Monitoring:\n" +
-        targetTimes.join(", ") +
-        "\n\nWaiting for " +
-        publishTime
-    );
+    // -----------------------------------------------------
+    // MOVE TO PREVIOUS DAY
+    // -----------------------------------------------------
 
     const prev =
         document.querySelector(
@@ -305,10 +405,23 @@
         return;
     }
 
+    alert(
+        "Booking Observatory armed.\n\n" +
+        "Moving to previous day.\n\n" +
+        "Waiting for " +
+        publishTime
+    );
+
     prev.click();
 
+    // -----------------------------------------------------
+    // BIG BANG
+    // -----------------------------------------------------
+
     waitUntilUKTime(
+
         publishTime,
+
         function () {
 
             const next =
@@ -331,11 +444,7 @@
                 observeSheet,
                 100
             );
-
         }
     );
 
 })();
-
-
-

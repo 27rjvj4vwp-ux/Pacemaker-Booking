@@ -5,9 +5,9 @@
 
 (function () {
 
-    const VERSION = "1.0 TEST";
+    const VERSION = "1.0 LIVE";
 
-    const TEST_MODE = true;
+    const TEST_MODE = false;
     const TEST_DELAY_SECONDS = 20;
 
     const targetTimes = [

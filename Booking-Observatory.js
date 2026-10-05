@@ -1,18 +1,32 @@
-// Booking Observatory V0.2
-// Date synchronisation test only
+// Booking Observatory V1.0 TEST
+// Goodwood Booking Sheet Observatory
+// Non-intrusive monitoring only.
+// Never presses Book or Confirm.
 
 (function () {
 
-    const VERSION = "0.2";
+    const VERSION = "1.0 TEST";
 
     const TEST_MODE = true;
     const TEST_DELAY_SECONDS = 20;
 
-    alert(
-        "Booking Observatory V" +
-        VERSION +
-        "\n\nStage 1 - Script Loaded"
-    );
+    const targetTimes = [
+        "08:50",
+        "09:00",
+        "09:10",
+        "09:20",
+        "09:30"
+    ];
+
+    const observationSeconds = 10;
+    const pollMs = 20;
+
+    const events = [];
+    const previousStates = {};
+
+    // ----------------------------------------------------
+    // STARTUP
+    // ----------------------------------------------------
 
     const dateBlock =
         document.querySelector(
@@ -22,7 +36,9 @@
     if (!dateBlock) {
 
         alert(
-            "FAILED\n\nDate block not found."
+            "Booking Observatory V" +
+            VERSION +
+            "\n\nDate display not found."
         );
 
         return;
@@ -31,10 +47,360 @@
     const targetDate =
         dateBlock.textContent.trim();
 
-    alert(
-        "Stage 2\n\nTarget Date:\n" +
+    const proceed = confirm(
+
+        "Booking Observatory V" +
+        VERSION +
+        "\n\n" +
+
+        "Target Date:\n" +
+        targetDate +
+        "\n\n" +
+
+        "Monitored Slots:\n" +
+        targetTimes.join(", ") +
+        "\n\n" +
+
+        (TEST_MODE
+            ? ("TEST MODE\n" +
+               TEST_DELAY_SECONDS +
+               " second delay.\n\n")
+            : "LIVE MODE\n\n") +
+
+        "Press OK to arm observatory."
+
+    );
+
+    if (!proceed)
+        return;
+
+    console.clear();
+
+    console.log(
+        "Booking Observatory V" +
+        VERSION +
+        " started."
+    );
+
+    console.log(
+        "Target date:",
         targetDate
     );
+
+    // ----------------------------------------------------
+    // LOGGING
+    // ----------------------------------------------------
+
+    function addEvent(slot, state) {
+
+        const event = {
+
+            clock:
+                new Date()
+                    .toISOString(),
+
+            elapsedMs:
+                Math.round(
+                    performance.now() -
+                    observationStart
+                ),
+
+            slot,
+            state
+
+        };
+
+        events.push(event);
+
+        console.log(
+            "[OBS]",
+            event.elapsedMs + "ms",
+            slot,
+            state
+        );
+
+    }
+
+    // ----------------------------------------------------
+    // OBSERVED STATE
+    // ----------------------------------------------------
+
+    function getState(row) {
+
+        if (!row) {
+
+            return {
+                rowExists: false
+            };
+
+        }
+
+        return {
+
+            rowExists: true,
+
+            bookButton:
+                !!row.querySelector(
+                    'a.inlineBooking.btn-success'
+                ),
+
+            tipForm:
+                !!row.querySelector(
+                    '.tipForm'
+                ),
+
+            dateInput:
+                !!row.querySelector(
+                    'input[name="date"]'
+                ),
+
+            courseInput:
+                !!row.querySelector(
+                    'input[name="course"]'
+                ),
+
+            groupInput:
+                !!row.querySelector(
+                    'input[name="group"]'
+                ),
+
+            bookInput:
+                !!row.querySelector(
+                    'input[name="book"]'
+                ),
+
+            inputCount:
+                row.querySelectorAll(
+                    'input'
+                ).length,
+
+            text:
+                row.innerText.trim()
+        };
+
+    }
+
+    function changed(a, b) {
+
+        return JSON.stringify(a) !==
+               JSON.stringify(b);
+
+    }
+
+    // ----------------------------------------------------
+    // DATE SYNCHRONISATION
+    // ----------------------------------------------------
+
+    function waitForDateDisplay(cb) {
+
+        const start = performance.now();
+
+        function poll() {
+
+            const block =
+                document.querySelector(
+                    'span.date-display'
+                );
+
+            if (!block) {
+
+                return setTimeout(
+                    poll,
+                    20
+                );
+
+            }
+
+            const current =
+                block.textContent.trim();
+
+            if (
+                current === targetDate
+            ) {
+
+                console.log(
+                    "Date synchronized after",
+                    Math.round(
+                        performance.now() -
+                        start
+                    ),
+                    "ms"
+                );
+
+                return cb();
+
+            }
+
+            setTimeout(
+                poll,
+                20
+            );
+        }
+
+        poll();
+    }
+
+    // ----------------------------------------------------
+    // OBSERVATION
+    // ----------------------------------------------------
+
+    let observationStart = 0;
+
+    function observe() {
+
+        console.log(
+            "Observation started."
+        );
+
+        observationStart =
+            performance.now();
+
+        const timer =
+            setInterval(() => {
+
+                const table =
+                    document.querySelector(
+                        "#member_teetimes"
+                    );
+
+                if (!table)
+                    return;
+
+                for (
+                    const slot
+                    of targetTimes
+                ) {
+
+                    const row =
+                        Array.from(
+                            table
+                                .querySelectorAll(
+                                    "tr"
+                                )
+                        )
+                        .find(r => {
+
+                            const th =
+                                r.querySelector(
+                                    "th.slot-time"
+                                );
+
+                            return (
+                                th &&
+                                th.textContent
+                                  .trim() === slot
+                            );
+
+                        });
+
+                    const state =
+                        getState(row);
+
+                    if (
+                        changed(
+                            state,
+                            previousStates[
+                                slot
+                            ]
+                        )
+                    ) {
+
+                        addEvent(
+                            slot,
+                            state
+                        );
+
+                        previousStates[
+                            slot
+                        ] = state;
+
+                    }
+
+                }
+
+                if (
+                    performance.now() -
+                    observationStart >
+                    observationSeconds *
+                    1000
+                ) {
+
+                    clearInterval(
+                        timer
+                    );
+
+                    finish();
+
+                }
+
+            }, pollMs);
+
+    }
+
+    // ----------------------------------------------------
+    // FINISH
+    // ----------------------------------------------------
+
+    function finish() {
+
+        const json =
+            JSON.stringify(
+                events,
+                null,
+                2
+            );
+
+        localStorage.setItem(
+            "bookingObservatory",
+            json
+        );
+
+        const blob =
+            new Blob(
+                [json],
+                {
+                    type:
+                    "application/json"
+                }
+            );
+
+        const a =
+            document.createElement(
+                "a"
+            );
+
+        a.href =
+            URL.createObjectURL(
+                blob
+            );
+
+        a.download =
+            "BookingObservatory.json";
+
+        document.body.appendChild(a);
+
+        a.click();
+
+        a.remove();
+
+        console.log(
+            "Observation complete."
+        );
+
+        alert(
+            "Booking Observatory V" +
+            VERSION +
+            "\n\nObservation complete.\n\n" +
+            events.length +
+            " events recorded.\n\n" +
+            "JSON downloaded."
+        );
+
+    }
+
+    // ----------------------------------------------------
+    // MAIN SEQUENCE
+    // ----------------------------------------------------
 
     const prev =
         document.querySelector(
@@ -44,128 +410,59 @@
     if (!prev) {
 
         alert(
-            "FAILED\n\nPrevious day arrow not found."
+            "Previous day arrow not found."
         );
 
         return;
     }
-
-    const next =
-        document.querySelector(
-            'a[data-direction="next"]'
-        );
-
-    if (!next) {
-
-        alert(
-            "FAILED\n\nNext day arrow not found."
-        );
-
-        return;
-    }
-
-    alert(
-        "Stage 3\n\nMoving to previous day."
-    );
 
     prev.click();
 
-    function beginReturn() {
+    setTimeout(() => {
 
-        alert(
-            "Stage 4\n\nReturning to target day."
-        );
+        const launch = () => {
 
-        const start =
-            performance.now();
-
-        next.click();
-
-        let polls = 0;
-
-        function checkDate() {
-
-            polls++;
-
-            const block =
+            const next =
                 document.querySelector(
-                    'span.date-display'
+                    'a[data-direction="next"]'
                 );
 
-            const currentDate =
-                block
-                    ? block.textContent.trim()
-                    : "(missing)";
-
-            if (
-                currentDate === targetDate
-            ) {
-
-                const elapsed =
-                    Math.round(
-                        performance.now() -
-                        start
-                    );
+            if (!next) {
 
                 alert(
-
-                    "SUCCESS\n\n" +
-
-                    "Target date restored.\n\n" +
-
-                    "Date:\n" +
-                    currentDate +
-
-                    "\n\nPolls:\n" +
-                    polls +
-
-                    "\n\nElapsed:\n" +
-                    elapsed +
-                    " ms"
-
+                    "Next day arrow not found."
                 );
 
                 return;
             }
 
-            if (polls % 25 === 0) {
+            next.click();
 
-                console.log(
-                    "Waiting for target date...",
-                    currentDate
-                );
-            }
+            waitForDateDisplay(
+                observe
+            );
+
+        };
+
+        if (TEST_MODE) {
+
+            console.log(
+                "Waiting",
+                TEST_DELAY_SECONDS,
+                "seconds"
+            );
 
             setTimeout(
-                checkDate,
-                20
+                launch,
+                TEST_DELAY_SECONDS * 1000
             );
+
+        } else {
+
+            launch();
+
         }
 
-        checkDate();
-    }
-
-    if (TEST_MODE) {
-
-        alert(
-            "Stage 4\n\nTEST MODE\n\n" +
-            "Waiting " +
-            TEST_DELAY_SECONDS +
-            " seconds."
-        );
-
-        setTimeout(
-            beginReturn,
-            TEST_DELAY_SECONDS *
-            1000
-        );
-
-    } else {
-
-        alert(
-            "LIVE MODE NOT IMPLEMENTED YET"
-        );
-
-    }
+    }, 250);
 
 })();

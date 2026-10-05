@@ -1,4 +1,4 @@
-// Booking Observatory V1.0 TEST
+// Booking Observatory V1.0 LIVE
 // Goodwood Booking Sheet Observatory
 // Non-intrusive monitoring only.
 // Never presses Book or Confirm.

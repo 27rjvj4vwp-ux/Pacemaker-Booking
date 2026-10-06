@@ -92,15 +92,20 @@
     // ----------------------------------------------------
 
     function addEvent(slot, state) {
+const event = {
 
-        const event = {
+    clock:
+        new Date()
+            .toISOString(),
 
-            clock:
-                new Date()
-                    .toISOString(),
+    displayedDate:
+        document.querySelector(
+            'span.date-display'
+        )?.textContent.trim() ||
+        "(missing)",
 
-            elapsedMs:
-                Math.round(
+    elapsedMs:
+                  Math.round(
                     performance.now() -
                     observationStart
                 ),
@@ -397,7 +402,65 @@
         );
 
     }
+function waitUntilPublishTime(cb) {
 
+    const target = new Date();
+
+    target.setHours(
+        7,
+        15,
+        0,
+        0
+    );
+
+    const early = 3000;
+
+    function scheduler() {
+
+        const diff =
+            target.getTime() -
+            Date.now();
+
+        if (diff <= early) {
+
+            const loop = () => {
+
+                if (
+                    Date.now() >=
+                    target.getTime()
+                ) {
+
+                    console.log(
+                        "Publish time reached."
+                    );
+
+                    return cb();
+
+                }
+
+                setTimeout(
+                    loop,
+                    5
+                );
+
+            };
+
+            return loop();
+        }
+
+        setTimeout(
+            scheduler,
+            Math.min(
+                2000,
+                diff - early
+            )
+        );
+
+    }
+
+    scheduler();
+
+}
     // ----------------------------------------------------
     // MAIN SEQUENCE
     // ----------------------------------------------------
@@ -457,11 +520,17 @@
                 TEST_DELAY_SECONDS * 1000
             );
 
-        } else {
+       } else {
 
-            launch();
+    console.log(
+        "Waiting for 07:15 publication."
+    );
 
-        }
+    waitUntilPublishTime(
+        launch
+    );
+
+}
 
     }, 250);
 

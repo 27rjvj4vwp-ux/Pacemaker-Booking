@@ -3,7 +3,7 @@
 (function () {
 
     // --- Configuration ---
-    const newpubtime = "07:15"; // "07:45" in winter
+    const newpubtime = "07:45"; // "07:45" in winter
 
     // --- Mode Tracking ---
     let bookingMode = 'SCH'; // Default to scheduled

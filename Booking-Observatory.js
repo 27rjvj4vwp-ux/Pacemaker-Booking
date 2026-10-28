@@ -408,7 +408,7 @@ function waitUntilPublishTime(cb) {
 
     target.setHours(
         7,
-        15,
+        45,
         0,
         0
     );

@@ -1,21 +1,21 @@
-// Booking Observatory V1.1 LIVE
+// Booking Observatory V1.2 LIVE
 // Goodwood Booking Sheet Observatory
 // Non-intrusive monitoring only.
 // Never presses Book or Confirm.
 
 (function () {
 
-    const VERSION = "1.1 LIVE";
+    const VERSION = "1.2 special run to monitor 11:20 Hotel booking";
 
     const TEST_MODE = false;
     const TEST_DELAY_SECONDS = 20;
 
     const targetTimes = [
-        "08:50",
         "09:00",
         "09:10",
         "09:20",
-        "09:30"
+        "09:30",
+        "11:20"
     ];
 
     const observationSeconds = 10;

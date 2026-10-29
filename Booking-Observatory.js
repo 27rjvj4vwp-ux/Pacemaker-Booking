@@ -5,7 +5,7 @@
 
 (function () {
 
-    const VERSION = "1.2 special run to monitor 11:20 Hotel booking";
+    const VERSION = "1.2 special run to monitor 11:20 Hotel booking at 7:45.6";
 
     const TEST_MODE = false;
     const TEST_DELAY_SECONDS = 20;
@@ -410,7 +410,7 @@ function waitUntilPublishTime(cb) {
         7,
         45,
         0,
-        0
+        600
     );
 
     const early = 3000;
@@ -523,7 +523,7 @@ function waitUntilPublishTime(cb) {
        } else {
 
     console.log(
-        "Waiting for 07:15 publication."
+        "Waiting for 07:45 publication."
     );
 
     waitUntilPublishTime(

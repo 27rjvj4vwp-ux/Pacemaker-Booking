@@ -378,8 +378,14 @@ function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
             logs = [];
         }
         if (logs.length >= 50) logs = logs.slice(logs.length - 49);
-        logs.push(entry);
-        localStorage.setItem('bookingTimes', JSON.stringify(logs));
-    }
+logs.push(entry);
+localStorage.setItem('bookingTimes', JSON.stringify(logs));
+
+// TEST ONLY
+console.log("Forensic reset in 2 seconds...");
+
+setTimeout(() => {
+    location.reload();
+}, 2000);
 
 })();

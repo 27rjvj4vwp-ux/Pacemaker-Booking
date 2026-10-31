@@ -388,4 +388,7 @@ setTimeout(() => {
     location.reload();
 }, 2000);
 
-})();
+}   // <-- closes logBookingTime()
+
+})(); // <-- closes the IIFE
+

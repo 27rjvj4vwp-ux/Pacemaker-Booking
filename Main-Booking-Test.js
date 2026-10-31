@@ -13,7 +13,7 @@
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.7 (test) : Pacemakers use only.\n" +
+        "Booking tool V2.7a (test with refresh) : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
     if (!teeTimeRaw) { alert("No tee time entered."); return; }

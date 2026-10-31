@@ -1,4 +1,4 @@
-// Version 2.7 (Test) — Enhanced diagnostics and anomaly detection
+// Version 2.7a (Test) — Enhanced diagnostics and anomaly detection plus final refresh
 // SUMMER BOOKING
 (function () {
 

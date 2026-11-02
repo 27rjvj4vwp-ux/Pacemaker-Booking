@@ -1,4 +1,4 @@
-// Version 2.7a (Test) — Enhanced diagnostics and anomaly detection plus wat 800 ms 
+// Version 2.7b (Test) — Enhanced diagnostics and anomaly detection plus wat 800 ms 
 // then do a final refresh before completion
 // SUMMER BOOKING
 (function () {

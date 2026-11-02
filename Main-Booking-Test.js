@@ -1,9 +1,10 @@
-// Version 2.7a (Test) — Enhanced diagnostics and anomaly detection plus final refresh
+// Version 2.7a (Test) — Enhanced diagnostics and anomaly detection plus wat 800 ms 
+// then do a final refresh before completion
 // SUMMER BOOKING
 (function () {
 
     // --- Configuration ---
-    const newpubtime = "07:45"; // "07:45" in winter
+    const newpubtime = "07:45"; // "07:15" in summer
 
     // --- Mode Tracking ---
     let bookingMode = 'SCH'; // Default to scheduled
@@ -382,11 +383,11 @@ logs.push(entry);
 localStorage.setItem('bookingTimes', JSON.stringify(logs));
 
 // TEST ONLY
-console.log("Forensic reset in 2 seconds...");
+console.log("Forensic reset in 800 ms ...");
 
 setTimeout(() => {
     location.reload();
-}, 2000);
+}, 800);
 
 }   // <-- closes logBookingTime()
 

@@ -1,537 +1,397 @@
-// Booking Observatory V1.2b Test file
-// Goodwood Booking Sheet Observatory
-// Non-intrusive monitoring only.
-// Never presses Book or Confirm.
+// Booking Observatory II — Goodwood booking-sheet monitor
+// Observes page state and records changes. Never presses Book or Confirm.
+// Scheduled mode uses the date navigation controls to request the sheet,
+// matching the existing observatory workflow. Immediate mode only observes.
 
 (function () {
+    "use strict";
 
-    const VERSION = "1.2b monitor Pacemakers bookings at 7:45.900, plus prebooking at 14:10";
-
-    const TEST_MODE = false;
-    const TEST_DELAY_SECONDS = 20;
-
-    const targetTimes = [
-        "09:10",
-        "09:20",
-        "09:30",
-        "09:40",
-        "14:10"
-    ];
-
-    const observationSeconds = 10;
+    const VERSION = "2.0";
+    const targetTimes = ["09:10", "09:20", "09:30", "09:40", "14:10"];
+    const observationSeconds = 5;
     const pollMs = 20;
 
     const events = [];
-    const previousStates = {};
+    const previousStates = new Map();
+    const rowRevisions = new Map();
 
-    // ----------------------------------------------------
-    // STARTUP
-    // ----------------------------------------------------
+    let observationStart = 0;
+    let observationStartedAt = "";
+    let timer = null;
+    let finishTimer = null;
+    let finished = false;
+    let mode = "";
+    let triggerOffsetMs = null;
+    let initialDateHeader = "(missing)";
+    let preNextDateHeader = null;
+    let preNextSnapshot = null;
+    let previousPageFingerprint = null;
 
-    const dateBlock =
-        document.querySelector(
-            'span.date-display'
-        );
-
-    if (!dateBlock) {
-
-        alert(
-            "Booking Observatory V" +
-            VERSION +
-            "\n\nDate display not found."
-        );
-
-        return;
+    function getDateHeader() {
+        const block = document.querySelector("span.date-display");
+        return block ? block.textContent : "(missing)";
     }
 
-    const targetDate =
-        dateBlock.textContent.trim();
-
-    const proceed = confirm(
-
-        "Booking Observatory V" +
-        VERSION +
-        "\n\n" +
-
-        "Target Date:\n" +
-        targetDate +
-        "\n\n" +
-
-        "Monitored Slots:\n" +
-        targetTimes.join(", ") +
-        "\n\n" +
-
-        (TEST_MODE
-            ? ("TEST MODE\n" +
-               TEST_DELAY_SECONDS +
-               " second delay.\n\n")
-            : "LIVE MODE\n\n") +
-
-        "Press OK to arm observatory."
-
-    );
-
-    if (!proceed)
-        return;
-
-    console.clear();
-
-    console.log(
-        "Booking Observatory V" +
-        VERSION +
-        " started."
-    );
-
-    console.log(
-        "Target date:",
-        targetDate
-    );
-
-    // ----------------------------------------------------
-    // LOGGING
-    // ----------------------------------------------------
-
-    function addEvent(slot, state) {
-const event = {
-
-    clock:
-        new Date()
-            .toISOString(),
-
-    displayedDate:
-        document.querySelector(
-            'span.date-display'
-        )?.textContent.trim() ||
-        "(missing)",
-
-    elapsedMs:
-                  Math.round(
-                    performance.now() -
-                    observationStart
-                ),
-
-            slot,
-            state
-
-        };
-
-        events.push(event);
-
-        console.log(
-            "[OBS]",
-            event.elapsedMs + "ms",
-            slot,
-            state
-        );
-
-    }
-
-    // ----------------------------------------------------
-    // OBSERVED STATE
-    // ----------------------------------------------------
-
-    function getState(row) {
-
-        if (!row) {
-
+    function getControlState(selector) {
+        const element = document.querySelector(selector);
+        if (!element) {
             return {
-                rowExists: false
+                exists: false,
+                disabled: null,
+                ariaDisabled: null,
+                className: null
             };
-
         }
 
         return {
-
-            rowExists: true,
-
-            bookButton:
-                !!row.querySelector(
-                    'a.inlineBooking.btn-success'
-                ),
-
-            tipForm:
-                !!row.querySelector(
-                    '.tipForm'
-                ),
-
-            dateInput:
-                !!row.querySelector(
-                    'input[name="date"]'
-                ),
-
-            courseInput:
-                !!row.querySelector(
-                    'input[name="course"]'
-                ),
-
-            groupInput:
-                !!row.querySelector(
-                    'input[name="group"]'
-                ),
-
-            bookInput:
-                !!row.querySelector(
-                    'input[name="book"]'
-                ),
-
-            inputCount:
-                row.querySelectorAll(
-                    'input'
-                ).length,
-
-            text:
-                row.innerText.trim()
+            exists: true,
+            disabled: Boolean(element.disabled) || element.classList.contains("disabled"),
+            ariaDisabled: element.getAttribute("aria-disabled"),
+            className: typeof element.className === "string" ? element.className : ""
         };
-
     }
 
-    function changed(a, b) {
-
-        return JSON.stringify(a) !==
-               JSON.stringify(b);
-
+    function getNavigationState() {
+        return {
+            prev: getControlState('a[data-direction="prev"]'),
+            next: getControlState('a[data-direction="next"]')
+        };
     }
 
-    // ----------------------------------------------------
-    // DATE SYNCHRONISATION
-    // ----------------------------------------------------
+    function findSlotRow(table, slot) {
+        if (!table) return null;
 
-    function waitForDateDisplay(cb) {
+        return Array.from(table.querySelectorAll("tr")).find(row => {
+            const heading = row.querySelector("th.slot-time");
+            return heading && heading.textContent.trim() === slot;
+        }) || null;
+    }
 
-        const start = performance.now();
-
-        function poll() {
-
-            const block =
-                document.querySelector(
-                    'span.date-display'
-                );
-
-            if (!block) {
-
-                return setTimeout(
-                    poll,
-                    20
-                );
-
-            }
-
-            const current =
-                block.textContent.trim();
-
-            if (
-                current === targetDate
-            ) {
-
-                console.log(
-                    "Date synchronized after",
-                    Math.round(
-                        performance.now() -
-                        start
-                    ),
-                    "ms"
-                );
-
-                return cb();
-
-            }
-
-            setTimeout(
-                poll,
-                20
-            );
+    function getState(row) {
+        if (!row) {
+            return {
+                rowExists: false,
+                slotState: "missing",
+                pageReady: false,
+                bookButton: false,
+                tipForm: false,
+                dateInput: false,
+                courseInput: false,
+                groupInput: false,
+                bookInput: false,
+                inputCount: 0,
+                availabilityText: false,
+                text: ""
+            };
         }
 
-        poll();
+        const bookButton = Boolean(row.querySelector("a.inlineBooking.btn-success"));
+        const tipForm = Boolean(row.querySelector(".tipForm"));
+        const dateInput = Boolean(row.querySelector('input[name="date"]'));
+        const courseInput = Boolean(row.querySelector('input[name="course"]'));
+        const groupInput = Boolean(row.querySelector('input[name="group"]'));
+        const bookInput = Boolean(row.querySelector('input[name="book"]'));
+        const text = row.innerText.trim();
+        const pageReady = bookButton && dateInput;
+        const anyBookingControls = bookButton || tipForm || dateInput || courseInput || groupInput || bookInput;
+
+        // These labels describe visible controls only; they do not infer occupancy from names.
+        let slotState;
+        if (pageReady) {
+            slotState = "booking-controls-ready";
+        } else if (anyBookingControls) {
+            slotState = "partial-booking-controls";
+        } else {
+            slotState = "no-booking-controls";
+        }
+
+        return {
+            rowExists: true,
+            slotState,
+            pageReady,
+            bookButton,
+            tipForm,
+            dateInput,
+            courseInput,
+            groupInput,
+            bookInput,
+            inputCount: row.querySelectorAll("input").length,
+            availabilityText: /\bslots? available\b/i.test(text),
+            text
+        };
     }
 
-    // ----------------------------------------------------
-    // OBSERVATION
-    // ----------------------------------------------------
-
-    let observationStart = 0;
-
-    function observe() {
-
-        console.log(
-            "Observation started."
-        );
-
-        observationStart =
-            performance.now();
-
-        const timer =
-            setInterval(() => {
-
-                const table =
-                    document.querySelector(
-                        "#member_teetimes"
-                    );
-
-                if (!table)
-                    return;
-
-                for (
-                    const slot
-                    of targetTimes
-                ) {
-
-                    const row =
-                        Array.from(
-                            table
-                                .querySelectorAll(
-                                    "tr"
-                                )
-                        )
-                        .find(r => {
-
-                            const th =
-                                r.querySelector(
-                                    "th.slot-time"
-                                );
-
-                            return (
-                                th &&
-                                th.textContent
-                                  .trim() === slot
-                            );
-
-                        });
-
-                    const state =
-                        getState(row);
-
-                    if (
-                        changed(
-                            state,
-                            previousStates[
-                                slot
-                            ]
-                        )
-                    ) {
-
-                        addEvent(
-                            slot,
-                            state
-                        );
-
-                        previousStates[
-                            slot
-                        ] = state;
-
-                    }
-
-                }
-
-                if (
-                    performance.now() -
-                    observationStart >
-                    observationSeconds *
-                    1000
-                ) {
-
-                    clearInterval(
-                        timer
-                    );
-
-                    finish();
-
-                }
-
-            }, pollMs);
-
+    function stateFingerprint(state) {
+        return JSON.stringify(state);
     }
 
-    // ----------------------------------------------------
-    // FINISH
-    // ----------------------------------------------------
+    function makeSnapshot() {
+        const table = document.querySelector("#member_teetimes");
+        const snapshot = {};
+        for (const slot of targetTimes) {
+            snapshot[slot] = getState(findSlotRow(table, slot));
+        }
+        return snapshot;
+    }
+
+    function recordEvent(event) {
+        events.push(event);
+        console.log("[OBS II]", event.elapsedMs + "ms", event.type, event.slot || "page", event);
+    }
+
+    function eventBase() {
+        return {
+            clock: new Date().toISOString(),
+            elapsedMs: Math.round(performance.now() - observationStart)
+        };
+    }
+
+    function sample() {
+        const dateHeader = getDateHeader();
+        const dateHeaderTrimmed = dateHeader.trim();
+        const navigation = getNavigationState();
+        const table = document.querySelector("#member_teetimes");
+        const pageState = { dateHeader, navigation, tableExists: Boolean(table) };
+        const pageFingerprint = JSON.stringify(pageState);
+
+        if (pageFingerprint !== previousPageFingerprint) {
+            const headerMatchesTarget = dateHeaderTrimmed === initialDateHeader.trim();
+            recordEvent({
+                type: "page",
+                ...eventBase(),
+                dateHeader,
+                dateHeaderTrimmed,
+                headerMatchesTarget,
+                navigation,
+                tableExists: Boolean(table)
+            });
+            previousPageFingerprint = pageFingerprint;
+        }
+
+        for (const slot of targetTimes) {
+            const state = getState(findSlotRow(table, slot));
+            const stateFingerprint = stateFingerprintFor(state);
+            const previous = previousStates.get(slot);
+            const previousRevision = rowRevisions.get(slot);
+            const rowRevision = previousRevision
+                ? previousRevision.revision + (previousRevision.fingerprint !== stateFingerprint ? 1 : 0)
+                : 1;
+            rowRevisions.set(slot, { fingerprint: stateFingerprint, revision: rowRevision });
+
+            const matchesPreNext = Boolean(
+                mode === "scheduled" &&
+                preNextSnapshot &&
+                dateHeaderTrimmed === initialDateHeader.trim() &&
+                preNextSnapshot[slot] &&
+                stateFingerprintFor(preNextSnapshot[slot]) === stateFingerprint
+            );
+
+            const observedState = {
+                ...state,
+                rowRevision,
+                possiblePrePublicationSnapshot: matchesPreNext,
+                transitionNote: matchesPreNext
+                    ? "Possible transitional snapshot: target date header is showing, but this row still matches its pre-next-click state."
+                    : null
+            };
+            const observedFingerprint = JSON.stringify(observedState);
+
+            if (observedFingerprint !== previous) {
+                recordEvent({
+                    type: "slot",
+                    ...eventBase(),
+                    dateHeader,
+                    dateHeaderTrimmed,
+                    headerMatchesTarget: dateHeaderTrimmed === initialDateHeader.trim(),
+                    slot,
+                    state: observedState
+                });
+                previousStates.set(slot, observedFingerprint);
+            }
+        }
+    }
+
+    function stateFingerprintFor(state) {
+        return JSON.stringify(state);
+    }
+
+    function startObservation() {
+        observationStart = performance.now();
+        observationStartedAt = new Date().toISOString();
+        console.log("Observation started in", mode, "mode; polling every", pollMs, "ms for", observationSeconds, "seconds.");
+        sample();
+        timer = setInterval(sample, pollMs);
+        finishTimer = setTimeout(finish, observationSeconds * 1000);
+    }
 
     function finish() {
+        if (finished) return;
+        finished = true;
+        if (timer !== null) clearInterval(timer);
+        if (finishTimer !== null) clearTimeout(finishTimer);
 
-        const json =
-            JSON.stringify(
-                events,
-                null,
-                2
-            );
+        const output = {
+            version: VERSION,
+            mode,
+            triggerOffsetMs,
+            observationStartedAt,
+            initialDateHeader,
+            preNextDateHeader,
+            observationSeconds,
+            pollMs,
+            targetTimes,
+            events
+        };
+        const json = JSON.stringify(output, null, 2);
 
-        localStorage.setItem(
-            "bookingObservatory",
-            json
-        );
-
-        const blob =
-            new Blob(
-                [json],
-                {
-                    type:
-                    "application/json"
-                }
-            );
-
-        const a =
-            document.createElement(
-                "a"
-            );
-
-        a.href =
-            URL.createObjectURL(
-                blob
-            );
-
-        a.download =
-            "BookingObservatory.json";
-
-        document.body.appendChild(a);
-
-        a.click();
-
-        a.remove();
-
-        console.log(
-            "Observation complete."
-        );
-
-        alert(
-            "Booking Observatory V" +
-            VERSION +
-            "\n\nObservation complete.\n\n" +
-            events.length +
-            " events recorded.\n\n" +
-            "JSON downloaded."
-        );
-
-    }
-function waitUntilPublishTime(cb) {
-
-    const target = new Date();
-
-    target.setHours(
-        7,
-        45,
-        0,
-        900
-    );
-
-    const early = 3000;
-
-    function scheduler() {
-
-        const diff =
-            target.getTime() -
-            Date.now();
-
-        if (diff <= early) {
-
-            const loop = () => {
-
-                if (
-                    Date.now() >=
-                    target.getTime()
-                ) {
-
-                    console.log(
-                        "Publish time reached."
-                    );
-
-                    return cb();
-
-                }
-
-                setTimeout(
-                    loop,
-                    5
-                );
-
-            };
-
-            return loop();
+        try {
+            localStorage.setItem("bookingObservatoryII", json);
+        } catch (error) {
+            console.warn("Could not save Observatory II data to localStorage:", error);
         }
 
-        setTimeout(
-            scheduler,
-            Math.min(
-                2000,
-                diff - early
-            )
-        );
+        const blob = new Blob([json], { type: "application/json" });
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = "BookingObservatory-II.json";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 
+        console.log("Observation complete.", events.length, "events recorded.");
+        alert(
+            "Booking Observatory " + VERSION +
+            "\n\nObservation complete.\n\n" + events.length +
+            " events recorded.\nJSON downloaded."
+        );
     }
 
-    scheduler();
+    function waitUntilPublishTime(callback) {
+        const target = new Date();
+        target.setHours(7, 45, 0, triggerOffsetMs);
 
-}
-    // ----------------------------------------------------
-    // MAIN SEQUENCE
-    // ----------------------------------------------------
+        console.log("Scheduled next-date click for", target.toLocaleTimeString(), "(offset", triggerOffsetMs, "ms).");
 
-    const prev =
-        document.querySelector(
-            'a[data-direction="prev"]'
-        );
+        function scheduler() {
+            const difference = target.getTime() - Date.now();
+            if (difference <= 100) {
+                const finalCheck = () => {
+                    if (Date.now() >= target.getTime()) {
+                        console.log("Scheduled trigger time reached.");
+                        callback();
+                        return;
+                    }
+                    setTimeout(finalCheck, 5);
+                };
+                finalCheck();
+                return;
+            }
+            setTimeout(scheduler, Math.min(2000, difference - 100));
+        }
+        scheduler();
+    }
 
-    if (!prev) {
+    function beginScheduledRun() {
+        const prev = document.querySelector('a[data-direction="prev"]');
+        if (!prev) {
+            alert("Previous day arrow not found. No date was changed by the observatory.");
+            return;
+        }
 
-        alert(
-            "Previous day arrow not found."
-        );
+        console.log("Moving to previous date before the scheduled next-date request.");
+        prev.click();
 
+        setTimeout(() => {
+            waitUntilPublishTime(() => {
+                const next = document.querySelector('a[data-direction="next"]');
+                if (!next) {
+                    alert("Next day arrow not found. No booking action was taken.");
+                    return;
+                }
+
+                // Capture the visible pre-request rows as a comparison point, then
+                // start polling immediately after the next-date request.
+                preNextDateHeader = getDateHeader();
+                preNextSnapshot = makeSnapshot();
+                recordEvent({
+                    type: "pre-next-baseline",
+                    clock: new Date().toISOString(),
+                    elapsedMs: 0,
+                    dateHeader: preNextDateHeader,
+                    dateHeaderTrimmed: preNextDateHeader.trim(),
+                    rows: preNextSnapshot
+                });
+
+                console.log("Requesting target date. Observation begins immediately after the next-date click.");
+                next.click();
+                startObservation();
+            });
+        }, 250);
+    }
+
+    const dateBlock = document.querySelector("span.date-display");
+    if (!dateBlock) {
+        alert("Booking Observatory " + VERSION + "\n\nDate display not found.");
         return;
     }
 
-    prev.click();
+    initialDateHeader = dateBlock.textContent;
 
-    setTimeout(() => {
-
-        const launch = () => {
-
-            const next =
-                document.querySelector(
-                    'a[data-direction="next"]'
-                );
-
-            if (!next) {
-
-                alert(
-                    "Next day arrow not found."
-                );
-
-                return;
-            }
-
-            next.click();
-
-            waitForDateDisplay(
-                observe
-            );
-
-        };
-
-        if (TEST_MODE) {
-
-            console.log(
-                "Waiting",
-                TEST_DELAY_SECONDS,
-                "seconds"
-            );
-
-            setTimeout(
-                launch,
-                TEST_DELAY_SECONDS * 1000
-            );
-
-       } else {
-
-    console.log(
-        "Waiting for 07:45 publication."
+    const selectedMode = prompt(
+        "Booking Observatory " + VERSION +
+        "\n\nEnter mode:\n\n" +
+        "scheduled — use prev/next navigation and wait for 07:45\n" +
+        "immediate — observe the currently displayed sheet without navigation",
+        "scheduled"
     );
+    if (selectedMode === null) return;
+    mode = selectedMode.trim().toLowerCase();
+    if (mode !== "scheduled" && mode !== "immediate") {
+        alert('Invalid mode. Enter "scheduled" or "immediate".');
+        return;
+    }
 
-    waitUntilPublishTime(
-        launch
-    );
+    if (mode === "scheduled") {
+        const enteredOffset = prompt(
+            "Enter the delay after 07:45:00.000 in milliseconds.\n\n" +
+            "Examples: 0 = 07:45:00.000, 900 = 07:45:00.900, 3000 = 07:45:03.000",
+            "900"
+        );
+        if (enteredOffset === null) return;
+        triggerOffsetMs = Number(enteredOffset.trim());
+        if (!Number.isFinite(triggerOffsetMs) || triggerOffsetMs < 0 || triggerOffsetMs > 60000) {
+            alert("Enter a whole number from 0 to 60000 milliseconds.");
+            return;
+        }
+        if (!Number.isInteger(triggerOffsetMs)) {
+            alert("Enter a whole number of milliseconds.");
+            return;
+        }
+    }
 
-}
+    const summary =
+        "Booking Observatory " + VERSION +
+        "\n\nMode: " + mode +
+        "\nStarting date header: " + initialDateHeader.trim() +
+        "\nMonitored slots: " + targetTimes.join(", ") +
+        "\nObservation: " + observationSeconds + " seconds at " + pollMs + " ms intervals." +
+        (mode === "scheduled"
+            ? "\nNext-date trigger: 07:45:00.000 + " + triggerOffsetMs + " ms.\nThe script will click prev now, then next at the scheduled time."
+            : "\nImmediate mode will not click or change the date.") +
+        "\n\nThe script never presses Book or Confirm. Continue?";
 
-    }, 250);
+    if (!confirm(summary)) return;
 
+    console.clear();
+    console.log("Booking Observatory " + VERSION + " started.");
+    console.log("Initial date header (raw):", initialDateHeader);
+    console.log("Mode:", mode, "Target slots:", targetTimes);
+
+    if (mode === "immediate") {
+        startObservation();
+    } else {
+        beginScheduledRun();
+    }
 })();

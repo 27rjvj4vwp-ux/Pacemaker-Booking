@@ -6,7 +6,7 @@
 (function () {
     "use strict";
 
-    const VERSION = "2.0";
+    const VERSION = "2.1";
     const targetTimes = ["09:10", "09:20", "09:30", "09:40", "14:10"];
     const observationSeconds = 5;
     const pollMs = 20;
@@ -21,6 +21,7 @@
     let finishTimer = null;
     let finished = false;
     let mode = "";
+    let modeSelectedAt = "";
     let triggerOffsetMs = null;
     let initialDateHeader = "(missing)";
     let preNextDateHeader = null;
@@ -170,20 +171,20 @@
 
         for (const slot of targetTimes) {
             const state = getState(findSlotRow(table, slot));
-            const stateFingerprint = stateFingerprintFor(state);
+            const rowStateFingerprint = stateFingerprint(state);
             const previous = previousStates.get(slot);
             const previousRevision = rowRevisions.get(slot);
             const rowRevision = previousRevision
-                ? previousRevision.revision + (previousRevision.fingerprint !== stateFingerprint ? 1 : 0)
+                ? previousRevision.revision + (previousRevision.fingerprint !== rowStateFingerprint ? 1 : 0)
                 : 1;
-            rowRevisions.set(slot, { fingerprint: stateFingerprint, revision: rowRevision });
+            rowRevisions.set(slot, { fingerprint: rowStateFingerprint, revision: rowRevision });
 
             const matchesPreNext = Boolean(
                 mode === "scheduled" &&
                 preNextSnapshot &&
                 dateHeaderTrimmed === initialDateHeader.trim() &&
                 preNextSnapshot[slot] &&
-                stateFingerprintFor(preNextSnapshot[slot]) === stateFingerprint
+                stateFingerprint(preNextSnapshot[slot]) === rowStateFingerprint
             );
 
             const observedState = {
@@ -211,10 +212,6 @@
         }
     }
 
-    function stateFingerprintFor(state) {
-        return JSON.stringify(state);
-    }
-
     function startObservation() {
         observationStart = performance.now();
         observationStartedAt = new Date().toISOString();
@@ -233,6 +230,7 @@
         const output = {
             version: VERSION,
             mode,
+            modeSelectedAt,
             triggerOffsetMs,
             observationStartedAt,
             initialDateHeader,
@@ -339,22 +337,15 @@
 
     initialDateHeader = dateBlock.textContent;
 
-    const selectedMode = prompt(
-        "Booking Observatory " + VERSION +
-        "\n\nEnter mode:\n\n" +
-        "scheduled — use prev/next navigation and wait for 07:45\n" +
-        "immediate — observe the currently displayed sheet without navigation",
-        "scheduled"
-    );
-    if (selectedMode === null) return;
-    mode = selectedMode.trim().toLowerCase();
-    if (mode !== "scheduled" && mode !== "immediate") {
-        alert('Invalid mode. Enter "scheduled" or "immediate".');
-        return;
-    }
+    const now = new Date();
+    modeSelectedAt = now.toISOString();
+    const todayPublishTime = new Date(now);
+    todayPublishTime.setHours(7, 45, 0, 0);
+    mode = now < todayPublishTime ? "scheduled" : "immediate";
 
     if (mode === "scheduled") {
         const enteredOffset = prompt(
+            "The device's local time is before 07:45, so Scheduled mode is selected.\n\n" +
             "Enter the delay after 07:45:00.000 in milliseconds.\n\n" +
             "Examples: 0 = 07:45:00.000, 900 = 07:45:00.900, 3000 = 07:45:03.000",
             "900"
@@ -373,13 +364,14 @@
 
     const summary =
         "Booking Observatory " + VERSION +
-        "\n\nMode: " + mode +
+        "\n\nMode selected automatically from the device's local time: " + mode +
+        "\nCurrent local time: " + now.toLocaleTimeString() +
         "\nStarting date header: " + initialDateHeader.trim() +
         "\nMonitored slots: " + targetTimes.join(", ") +
         "\nObservation: " + observationSeconds + " seconds at " + pollMs + " ms intervals." +
         (mode === "scheduled"
             ? "\nNext-date trigger: 07:45:00.000 + " + triggerOffsetMs + " ms.\nThe script will click prev now, then next at the scheduled time."
-            : "\nImmediate mode will not click or change the date.") +
+            : "\nImmediate mode will observe the current sheet without navigation because it is 07:45 or later.") +
         "\n\nThe script never presses Book or Confirm. Continue?";
 
     if (!confirm(summary)) return;
@@ -387,7 +379,7 @@
     console.clear();
     console.log("Booking Observatory " + VERSION + " started.");
     console.log("Initial date header (raw):", initialDateHeader);
-    console.log("Mode:", mode, "Target slots:", targetTimes);
+    console.log("Mode selected automatically:", mode, "Target slots:", targetTimes);
 
     if (mode === "immediate") {
         startObservation();

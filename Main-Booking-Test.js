@@ -1,5 +1,5 @@
-// Version 2.7b (Test) — Enhanced diagnostics and anomaly detection plus wat 800 ms 
-// then do a final refresh before completion
+// Version 2.7b (Test) — Enhanced diagnostics and anomaly detection
+// Test copy: no automatic page reload after the booking flow
 // SUMMER BOOKING
 (function () {
 
@@ -14,7 +14,7 @@
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.7a (test with refresh) : Pacemakers use only.\n" +
+        "Booking tool V2.7b (test, no automatic reload) : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
     if (!teeTimeRaw) { alert("No tee time entered."); return; }
@@ -147,139 +147,139 @@
         }, 150);
     }
 
-function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
-    const start = Date.now();
-    function check() {
-        const table = document.querySelector('#member_teetimes');
-        if (!table) {
-            if (Date.now() - start < timeoutMs)
-                return setTimeout(check, 50);
-            return alert(
-                "BOOKING DIAGNOSTIC\n\n" +
-                "Result:\n\n" +
-                "Booking table not found.\n\n" +
-                "Possible Cause:\n\n" +
-                "IG page anomaly."
-            );
-        }
-        let rowFound = false;
-        let dateInputFound = false;
-        let dateMatch = false;
-        let bookButtonFound = false;
-        let rowText = "";
-        let detectedNames = [];
-        for (const row of table.querySelectorAll('tr')) {
-            const tCell = row.querySelector('th.slot-time');
-            if (!tCell) continue;
-            const rowTime = tCell.textContent.trim();
-            if (rowTime !== targetTime) continue;
-            rowFound = true;
-            rowText = row.innerText || row.textContent || "";
-            const dateInput = row.querySelector('input[name="date"]');
-            if (dateInput) {
-                dateInputFound = true;
-                if (dateInput.value === bookingSystemDate) {
-                    dateMatch = true;
-                    const btn = Array.from(
-                        row.querySelectorAll('a, button')
-                    ).find(b =>
-                        b.className &&
-                        b.className.includes('inlineBooking') &&
-                        b.className.includes('btn-success') &&
-                        b.textContent.trim().toLowerCase() === 'book'
-                    );
-                    if (btn) {
-                        bookButtonFound = true;
-                        return cb(btn);
+    function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
+        const start = Date.now();
+        function check() {
+            const table = document.querySelector('#member_teetimes');
+            if (!table) {
+                if (Date.now() - start < timeoutMs)
+                    return setTimeout(check, 50);
+                return alert(
+                    "BOOKING DIAGNOSTIC\n\n" +
+                    "Result:\n\n" +
+                    "Booking table not found.\n\n" +
+                    "Possible Cause:\n\n" +
+                    "IG page anomaly."
+                );
+            }
+            let rowFound = false;
+            let dateInputFound = false;
+            let dateMatch = false;
+            let bookButtonFound = false;
+            let rowText = "";
+            let detectedNames = [];
+            for (const row of table.querySelectorAll('tr')) {
+                const tCell = row.querySelector('th.slot-time');
+                if (!tCell) continue;
+                const rowTime = tCell.textContent.trim();
+                if (rowTime !== targetTime) continue;
+                rowFound = true;
+                rowText = row.innerText || row.textContent || "";
+                const dateInput = row.querySelector('input[name="date"]');
+                if (dateInput) {
+                    dateInputFound = true;
+                    if (dateInput.value === bookingSystemDate) {
+                        dateMatch = true;
+                        const btn = Array.from(
+                            row.querySelectorAll('a, button')
+                        ).find(b =>
+                            b.className &&
+                            b.className.includes('inlineBooking') &&
+                            b.className.includes('btn-success') &&
+                            b.textContent.trim().toLowerCase() === 'book'
+                        );
+                        if (btn) {
+                            bookButtonFound = true;
+                            return cb(btn);
+                        }
                     }
                 }
+                // Occupied / reserved slot detection
+                const cleanedLines = rowText
+                    .split('\n')
+                    .map(x => x.trim())
+                    .filter(x => x.length > 0)
+                    .filter(x => x !== targetTime);
+                if (
+                    !dateInput &&
+                    !bookButtonFound &&
+                    cleanedLines.length > 0
+                ) {
+                    detectedNames = cleanedLines;
+                }
+                break;
             }
-            // Occupied / reserved slot detection
-            const cleanedLines = rowText
-                .split('\n')
-                .map(x => x.trim())
-                .filter(x => x.length > 0)
-                .filter(x => x !== targetTime);
+            if (Date.now() - start < timeoutMs)
+                return setTimeout(check, 30);
+            // ---- OCCUPIED OR RESERVED SLOT ----
             if (
-                !dateInput &&
+                rowFound &&
+                !dateInputFound &&
                 !bookButtonFound &&
-                cleanedLines.length > 0
+                detectedNames.length > 0
             ) {
-                detectedNames = cleanedLines;
+                let msg =
+                    "BOOKING DIAGNOSTIC\n\n" +
+                    "Target Time: " + targetTime + "\n\n" +
+                    "Result:\n\n" +
+                    "Slot unavailable.\n\n" +
+                    "Detected content:\n\n" +
+                    detectedNames.join("\n");
+                return alert(msg);
             }
-            break;
-        }
-        if (Date.now() - start < timeoutMs)
-            return setTimeout(check, 30);
-        // ---- OCCUPIED OR RESERVED SLOT ----
-        if (
-            rowFound &&
-            !dateInputFound &&
-            !bookButtonFound &&
-            detectedNames.length > 0
-        ) {
-            let msg =
-                "BOOKING DIAGNOSTIC\n\n" +
-                "Target Time: " + targetTime + "\n\n" +
-                "Result:\n\n" +
-                "Slot unavailable.\n\n" +
-                "Detected content:\n\n" +
-                detectedNames.join("\n");
-            return alert(msg);
-        }
-        // ---- SHEET CONSTRUCTING ----
-        if (
-            rowFound &&
-            !dateInputFound &&
-            !bookButtonFound
-        ) {
+            // ---- SHEET CONSTRUCTING ----
+            if (
+                rowFound &&
+                !dateInputFound &&
+                !bookButtonFound
+            ) {
+                return alert(
+                    "BOOKING DIAGNOSTIC\n\n" +
+                    "Target Time: " + targetTime + "\n\n" +
+                    "Row Found: YES\n" +
+                    "Date Input: NO\n" +
+                    "Book Button: NO\n\n" +
+                    "Result:\n\n" +
+                    "Booking row exists but booking form is incomplete.\n\n" +
+                    "Likely Cause:\n\n" +
+                    "Sheet still initialising."
+                );
+            }
+            // ---- DATE MISMATCH ----
+            if (
+                rowFound &&
+                dateInputFound &&
+                !dateMatch
+            ) {
+                return alert(
+                    "BOOKING DIAGNOSTIC\n\n" +
+                    "Target Time: " + targetTime + "\n\n" +
+                    "Row Found: YES\n" +
+                    "Date Input: YES\n" +
+                    "Date Match: NO\n\n" +
+                    "Result:\n\n" +
+                    "Booking row found but date does not match expected booking date."
+                );
+            }
+            // ---- FINAL FALLBACK ----
             return alert(
                 "BOOKING DIAGNOSTIC\n\n" +
                 "Target Time: " + targetTime + "\n\n" +
-                "Row Found: YES\n" +
-                "Date Input: NO\n" +
-                "Book Button: NO\n\n" +
+                "Row Found: " + (rowFound ? "YES" : "NO") + "\n" +
+                "Date Input: " + (dateInputFound ? "YES" : "NO") + "\n" +
+                "Book Button: " + (bookButtonFound ? "YES" : "NO") + "\n\n" +
                 "Result:\n\n" +
-                "Booking row exists but booking form is incomplete.\n\n" +
-                "Likely Cause:\n\n" +
-                "Sheet still initialising."
+                "Booking form never became available.\n\n" +
+                "Possible Causes:\n\n" +
+                "• Sheet still constructing\n" +
+                "• Slot already taken\n" +
+                "• Date mismatch\n" +
+                "• IG page anomaly"
             );
         }
-        // ---- DATE MISMATCH ----
-        if (
-            rowFound &&
-            dateInputFound &&
-            !dateMatch
-        ) {
-            return alert(
-                "BOOKING DIAGNOSTIC\n\n" +
-                "Target Time: " + targetTime + "\n\n" +
-                "Row Found: YES\n" +
-                "Date Input: YES\n" +
-                "Date Match: NO\n\n" +
-                "Result:\n\n" +
-                "Booking row found but date does not match expected booking date."
-            );
-        }
-        // ---- FINAL FALLBACK ----
-        return alert(
-            "BOOKING DIAGNOSTIC\n\n" +
-            "Target Time: " + targetTime + "\n\n" +
-            "Row Found: " + (rowFound ? "YES" : "NO") + "\n" +
-            "Date Input: " + (dateInputFound ? "YES" : "NO") + "\n" +
-            "Book Button: " + (bookButtonFound ? "YES" : "NO") + "\n\n" +
-            "Result:\n\n" +
-            "Booking form never became available.\n\n" +
-            "Possible Causes:\n\n" +
-            "• Sheet still constructing\n" +
-            "• Slot already taken\n" +
-            "• Date mismatch\n" +
-            "• IG page anomaly"
-        );
+        check();
     }
-    check();
-}
-   
+
     // --- Overlay-specific Confirmation Button Detection ---
     function waitForConfirmationButtonPolling(teeTime, timeoutMs) {
         const start = Date.now();
@@ -317,6 +317,8 @@ function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
             });
 
             if (c) {
+                // Preserve the existing timing metric: this records when the
+                // confirmation control is detected, before its scheduled click.
                 logBookingTime();
 
                 // Safari/Edge-safe confirmation click
@@ -336,7 +338,7 @@ function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
         poll();
     }
 
-    // --- Logging with auto-trim (last 50 entries), explicit mode flag, log format: mode,date,hr,min,sec,milliseconds ---
+    // --- Timing log: mode,date,hour,minute,second,milliseconds ---
     function logBookingTime() {
         let logHr, logMin, logSec, delayMs;
         const now = new Date();
@@ -379,17 +381,8 @@ function waitForBookingSlot(targetTime, bookingSystemDate, timeoutMs, cb) {
             logs = [];
         }
         if (logs.length >= 50) logs = logs.slice(logs.length - 49);
-logs.push(entry);
-localStorage.setItem('bookingTimes', JSON.stringify(logs));
+        logs.push(entry);
+        localStorage.setItem('bookingTimes', JSON.stringify(logs));
+    }
 
-// TEST ONLY
-console.log("Forensic reset in 800 ms ...");
-
-setTimeout(() => {
-    location.reload();
-}, 800);
-
-}   // <-- closes logBookingTime()
-
-})(); // <-- closes the IIFE
-
+})();

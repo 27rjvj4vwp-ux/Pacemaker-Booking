@@ -1,6 +1,6 @@
-// Version 2.7b (Test) — Enhanced diagnostics and anomaly detection
+// Version 2.8 (Test) — Enhanced diagnostics and anomaly detection
 // Test copy: no automatic page reload after the booking flow
-// SUMMER BOOKING
+// Winter Booking
 (function () {
 
     // --- Configuration ---
@@ -14,7 +14,7 @@
 
     // --- User Input ---
     let teeTimeRaw = prompt(
-        "Booking tool V2.7b (test, no automatic reload) : Pacemakers use only.\n" +
+        "Booking tool V2.8 (Test) : Pacemakers use only.\n" +
         "Enter your target tee time (e.g., 09:10):"
     );
     if (!teeTimeRaw) { alert("No tee time entered."); return; }

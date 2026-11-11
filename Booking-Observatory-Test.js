@@ -7,7 +7,7 @@
     "use strict";
 
     const VERSION = "2.1";
-    const targetTimes = ["09:10", "09:20", "09:30", "10:30", "14:00"];
+    const targetTimes = ["09:10", "09:20", "09:30", "09:40", "10:10"];
     const observationSeconds = 5;
     const pollMs = 20;
 
